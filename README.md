@@ -116,6 +116,14 @@ counters, live gauges) with a full sidebar of management sections:
   query log, flush network table, update gravity), and version info.
 - Auto-refreshes blocking status, the overview, and the live query stream.
 
+## Screenshots
+
+**Supported hardware** — every router, gateway, AP, extender and switch this
+release can drive, searchable, across TP-Link, Asus and OpenWrt. Auto-detect walks
+them in order; pinning the exact model makes connections faster and more reliable.
+
+![Searchable catalogue of 27 supported hardware drivers](docs/screenshots/supported-hardware.png)
+
 ## Supported hardware
 
 ## Automation
