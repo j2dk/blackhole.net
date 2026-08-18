@@ -1,0 +1,19 @@
+{
+  "name": "blackhole-net",
+  "version": "1.0.0",
+  "description": "Blackhole.Net — unified control centre for Pi-hole, the gateway router and Wi-Fi access points.",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "compression": "^1.8.1",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2"
+  }
+}

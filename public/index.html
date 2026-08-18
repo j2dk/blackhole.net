@@ -1,0 +1,933 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Blackhole.Net</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%9B%B0%EF%B8%8F%3C/text%3E%3C/svg%3E" />
+  <script>
+    /* Sets data-theme before first paint. Without it the root has no attribute
+       for the whole parse, so the page painted in the default theme and then
+       flipped to a saved preference — a full-page flash on every load.
+       Byte-compatible with initTheme() in app.js so the two cannot disagree.
+       VALIDATES the stored value: a stale or hand-edited "Dark" matches neither
+       block and would silently resolve to the default. try/catch because
+       localStorage THROWS outright under blocked or partitioned storage. */
+    (function () {
+      var t = null;
+      try { t = localStorage.getItem('phc-theme'); } catch (e) {}
+      if (t !== 'dark' && t !== 'light') {
+        t = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      }
+      document.documentElement.setAttribute('data-theme', t);
+    })();
+  </script>
+</head>
+<body>
+<div class="app">
+  <!-- ===================== SIDEBAR ===================== -->
+  <aside class="sidebar">
+    <div class="logo">
+      <div class="logo-mark">◈</div>
+      <div class="logo-text"><b>BLACKHOLE</b><span>.NET</span></div>
+    </div>
+    <nav class="nav" id="nav">
+      <button class="nav-item active" data-section="overview" title="Overview"><svg viewBox="0 0 24 24"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg><span>Overview</span></button>
+      <button class="nav-item" data-section="mesh" title="Network Map"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="2.6"/><circle cx="4.5" cy="5" r="2"/><circle cx="19.5" cy="5" r="2"/><circle cx="4.5" cy="19" r="2"/><circle cx="19.5" cy="19" r="2"/><path d="M6 6.2l4.3 4.3M18 6.2l-4.3 4.3M6 17.8l4.3-4.3M18 17.8l-4.3-4.3" fill="none" stroke="currentColor" stroke-width="1.4"/></svg><span>Network Map</span></button>
+      <button class="nav-item" data-section="insights" title="Insights"><svg viewBox="0 0 24 24"><path d="M12 2a7 7 0 00-4 12.7V17h8v-2.3A7 7 0 0012 2zM9 20h6M10 22h4" fill="none" stroke="currentColor" stroke-width="1.5"/></svg><span>Insights</span></button>
+      <button class="nav-item" data-section="automation" title="Automation"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.2" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M12 7.6V12l3 1.9" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><path d="M12 2.4v1.8M12 19.8v1.8M2.4 12h1.8M19.8 12h1.8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg><span>Automation</span></button>
+      <button class="nav-item" data-section="queries" title="Query Log"><svg viewBox="0 0 24 24"><path d="M3 4h18v2H3zm0 7h18v2H3zm0 7h12v2H3z"/></svg><span>Query Log</span></button>
+      <button class="nav-item" data-section="domains" title="Domains"><svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 100 20 10 10 0 000-20zm0 2c1.7 0 3 3.6 3 8s-1.3 8-3 8-3-3.6-3-8 1.3-8 3-8zM4.3 8h15.4M4.3 16h15.4" fill="none" stroke="currentColor" stroke-width="1.4"/></svg><span>Domains</span></button>
+      <button class="nav-item" data-section="lists" title="Filter Lists"><svg viewBox="0 0 24 24"><path d="M4 6h16v2H4zm0 5h16v2H4zm0 5h16v2H4z"/></svg><span>Filter Lists</span></button>
+      <button class="nav-item" data-section="groups" title="Groups"><svg viewBox="0 0 24 24"><path d="M16 11a3 3 0 100-6 3 3 0 000 6zm-8 0a3 3 0 100-6 3 3 0 000 6zm0 2c-2.7 0-8 1.3-8 4v3h10v-3c0-1 .6-1.9 1.6-2.6C10.3 13.1 9 13 8 13zm8 0c-.3 0-.7 0-1.1.1 1.3 1 2.1 2.2 2.1 3.9v3h7v-3c0-2.7-5.3-4-8-4z"/></svg><span>Groups</span></button>
+      <button class="nav-item" data-section="clients" title="Clients"><svg viewBox="0 0 24 24"><path d="M4 5h16v10H4zm0 12h16v2H4zm8-9a2 2 0 100 4 2 2 0 000-4z"/></svg><span>Clients</span></button>
+      <button class="nav-item" data-section="localdns" title="Local DNS"><svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zm0 7L4.2 5.7 12 9.5l7.8-3.8L12 9zM2 17l10 5 10-5M2 12l10 5 10-5" fill="none" stroke="currentColor" stroke-width="1.4"/></svg><span>Local DNS</span></button>
+      <button class="nav-item" data-section="dhcp" title="DHCP"><svg viewBox="0 0 24 24"><path d="M4 4h16v6H4zm0 10h16v6H4zM7 6v2m0 8v2" fill="none" stroke="currentColor" stroke-width="1.5"/></svg><span>DHCP</span></button>
+      <button class="nav-item" data-section="gateway" title="Gateway"><svg viewBox="0 0 24 24"><path d="M4 9h16v5H4zM7 11.5h.01M11 11.5h4M6 14v3m12-3v3M12 2v4m-3-1l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.5"/></svg><span>Gateway</span></button>
+      <button class="nav-item" data-section="infra" title="Routers &amp; APs"><svg viewBox="0 0 24 24"><rect x="3" y="14" width="18" height="7" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M7 17.5h.01M11 17.5h6" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8.6 9.4a4.8 4.8 0 016.8 0M6 6.6a8.8 8.8 0 0112 0" fill="none" stroke="currentColor" stroke-width="1.5"/></svg><span>Routers &amp; APs</span></button>
+      <button class="nav-item" data-section="network" title="Network"><svg viewBox="0 0 24 24"><path d="M12 2a4 4 0 014 4M12 2a4 4 0 00-4 4M2 12a10 10 0 0110-10M22 12A10 10 0 0012 2" fill="none" stroke="currentColor" stroke-width="1.4"/><circle cx="12" cy="12" r="3"/><path d="M12 15v5M9 20h6" fill="none" stroke="currentColor" stroke-width="1.4"/></svg><span>Network</span></button>
+      <button class="nav-item" data-section="diagnostics" title="Diagnostics"><svg viewBox="0 0 24 24"><path d="M3 12h4l2 6 4-14 2 8h6" fill="none" stroke="currentColor" stroke-width="1.6"/></svg><span>Diagnostics</span></button>
+      <button class="nav-item" data-section="backup" title="Backup"><svg viewBox="0 0 24 24"><path d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14a2 2 0 002-2v-3H3v3a2 2 0 002 2z" fill="none" stroke="currentColor" stroke-width="1.5"/></svg><span>Backup</span></button>
+      <button class="nav-item admin-only" data-section="admin" title="Admin"><svg viewBox="0 0 24 24"><path d="M12 2.5l8 3v6c0 5-3.4 8.9-8 10-4.6-1.1-8-5-8-10v-6z" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M9.2 11.8l2 2 3.6-3.6" fill="none" stroke="currentColor" stroke-width="1.8"/></svg><span>Admin</span></button>
+      <button class="nav-item" data-section="profile" title="Your Profile"><svg viewBox="0 0 24 24"><circle cx="12" cy="8.2" r="3.9" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M4.6 20.2a7.4 7.4 0 0114.8 0" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg><span>Profile</span></button>
+      <button class="nav-item" data-section="settings" title="Settings"><svg viewBox="0 0 24 24"><path d="M12 8a4 4 0 100 8 4 4 0 000-8zm9 4l-2-1.2.3-2.3-2.2-.8-.8-2.2-2.3.3L12 2l-1.2 2-2.3-.3-.8 2.2-2.2.8.3 2.3L2 12l2 1.2-.3 2.3 2.2.8.8 2.2 2.3-.3L12 22l1.2-2 2.3.3.8-2.2 2.2-.8-.3-2.3L22 12z" fill="none" stroke="currentColor" stroke-width="1.3"/></svg><span>Settings</span></button>
+    </nav>
+    <div class="sidebar-foot">
+      <div class="conn" id="connBadge"><span class="conn-dot"></span><span id="connText">Linking…</span></div>
+      <div class="ver" id="verText">—</div>
+      <div class="credit">
+        <span class="credit-line">Powered by <b>J2DK Technologies</b></span>
+        <span class="credit-copy">&copy; 2026 J2DK Technologies. All rights reserved.</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ===================== MAIN ===================== -->
+  <div class="content">
+    <header class="hud" id="hud" data-engine="down">
+      <!-- zone 1 · which view you are in, and where -->
+      <div class="hud-context">
+        <span class="hud-mark" aria-hidden="true"></span>
+        <div class="hud-titles">
+          <h1 id="sectionTitle">Overview</h1>
+          <span class="hud-host mono" id="hostLabel"></span>
+        </div>
+        <select id="phSwitch" class="ph-switch" title="Active Pi-hole instance"
+                aria-label="Active Pi-hole instance" hidden></select>
+      </div>
+
+      <!-- zone 2 · the one control that changes network behaviour -->
+      <div class="hud-engine" id="blockingPanel">
+        <span class="status-ring" id="statusDot" aria-hidden="true"></span>
+        <span class="hud-eng-text"><b id="blockingLabel">Checking</b><span id="blockingSub">DNS blocking</span></span>
+        <button class="btn btn-toggle" id="toggleBtn"
+                aria-label="DNS blocking control, checking state" disabled>Checking</button>
+      </div>
+
+      <!-- zone 3 · command palette entry point (Ctrl / Cmd + K) -->
+      <button type="button" class="hud-cmd" id="cmdBtn"
+              aria-label="Search or run a command" aria-keyshortcuts="Control+K">
+        <span class="hud-ico" data-icon="search" data-size="15" aria-hidden="true"></span>
+        <span class="hud-cmd-text">Search or run a command</span>
+        <span class="hud-cmd-keys" aria-hidden="true"><kbd id="cmdKey">Ctrl</kbd><kbd>K</kbd></span>
+      </button>
+
+      <!-- zone 4 · session chrome -->
+      <div class="hud-session">
+        <div class="hud-meta">
+          <span class="hud-sync" aria-hidden="true"></span>
+          <div class="clock mono" id="clock">--:--:--</div>
+        </div>
+        <div class="hud-rail" role="group" aria-label="View and session controls">
+          <button class="btn btn-icon" id="refreshBtn" title="Refresh data" aria-label="Refresh data">
+            <span class="hud-ico" data-icon="refresh" data-size="16" aria-hidden="true"></span>
+          </button>
+          <span class="hud-div" aria-hidden="true"></span>
+          <button class="btn btn-icon" id="themeBtn" title="Toggle light / dark" aria-label="Toggle colour theme">
+            <span class="hud-ico" data-icon="sun" data-size="16" aria-hidden="true"></span>
+          </button>
+          <span class="hud-div" aria-hidden="true"></span>
+          <button class="btn btn-icon" id="logoutBtn" title="Sign out" aria-label="Sign out">
+            <span class="hud-ico" data-icon="power" data-size="16" aria-hidden="true"></span>
+          </button>
+        </div>
+        <div class="hud-id" id="whoami" title="Signed in">
+          <span class="hud-avatar" id="whoAvatar" role="img" aria-label="Signed in">—</span>
+          <span class="hud-id-text">
+            <span class="who-name" id="whoName">—</span>
+            <span class="pill gray" id="whoRole">—</span>
+          </span>
+        </div>
+      </div>
+    </header>
+
+    <main id="main">
+      <!-- ============ OVERVIEW ============ -->
+      <section class="section active" id="s-overview">
+        <div class="stat-row stat-row-8">
+          <div class="stat-tile"><span class="stat-ico" data-icon="list" data-size="22" aria-hidden="true"></span><div class="stat-body"><div class="stat-label">Total Queries</div><div class="stat-value" id="s-total">—</div></div></div>
+          <div class="stat-tile red"><span class="stat-ico" data-icon="shield" data-size="22" aria-hidden="true"></span><div class="stat-body"><div class="stat-label">Blocked</div><div class="stat-value" id="s-blocked">—</div></div></div>
+          <div class="stat-tile amber"><span class="stat-ico" data-icon="percent" data-size="22" aria-hidden="true"></span><div class="stat-body"><div class="stat-label">Block Rate</div><div class="stat-value" id="s-pct">—</div></div></div>
+          <div class="stat-tile green"><span class="stat-ico" data-icon="device" data-size="22" aria-hidden="true"></span><div class="stat-body"><div class="stat-label">Active Clients</div><div class="stat-value" id="stat-clients">—</div></div></div>
+          <div class="stat-tile violet"><span class="stat-ico" data-icon="server" data-size="22" aria-hidden="true"></span><div class="stat-body"><div class="stat-label">Gravity Domains</div><div class="stat-value" id="s-gravity">—</div></div></div>
+          <div class="stat-tile"><span class="stat-ico" data-icon="chip" data-size="22" aria-hidden="true"></span><div class="stat-body"><div class="stat-label">Router CPU</div><div class="stat-value" id="s-routercpu">—</div></div></div>
+          <div class="stat-tile green"><span class="stat-ico" data-icon="globe" data-size="22" aria-hidden="true"></span><div class="stat-body"><div class="stat-label">Internet Latency</div><div class="stat-value" id="s-inet">—</div></div></div>
+          <div class="stat-tile amber"><span class="stat-ico" data-icon="clock" data-size="22" aria-hidden="true"></span><div class="stat-body"><div class="stat-label">DNS Uptime</div><div class="stat-value" id="s-uptime">—</div></div></div>
+          <div class="stat-tile"><span class="stat-ico" data-icon="bolt" data-size="22" aria-hidden="true"></span><div class="stat-body"><div class="stat-label">Cache Hit Rate</div><div class="stat-value" id="s-cachehit">—</div></div></div>
+          <div class="stat-tile violet"><span class="stat-ico" data-icon="radar" data-size="22" aria-hidden="true"></span><div class="stat-body"><div class="stat-label">Upstream Latency</div><div class="stat-value" id="s-upstream">—</div></div></div>
+          <div class="stat-tile green"><span class="stat-ico" data-icon="energy" data-size="22" aria-hidden="true"></span><div class="stat-body"><div class="stat-label">Queries / Second</div><div class="stat-value" id="s-qps">—</div></div></div>
+          <div class="stat-tile red"><span class="stat-ico" data-icon="ap" data-size="22" aria-hidden="true"></span><div class="stat-body"><div class="stat-label">Weak Wi-Fi Clients</div><div class="stat-value" id="s-weak">—</div></div></div>
+        </div>
+
+        <div class="glass" id="phFleetCard" hidden>
+          <div class="glass-head"><h2>DNS Instances <span class="count-pill" id="phFleetCount">0</span></h2>
+            <span class="mono dim" id="phFleetAgg"></span></div>
+          <div class="table-wrap"><table class="dt" id="phFleetTable">
+            <thead><tr><th>Instance</th><th>Address</th><th>Status</th><th>Blocking</th><th class="num">Queries</th><th class="num">Blocked</th><th class="num">Rate</th><th class="num">Clients</th><th>Core</th></tr></thead>
+            <tbody></tbody></table></div>
+        </div>
+
+        <div class="grid-3">
+          <div class="glass"><div class="glass-head"><h2>Pi-hole</h2><span id="ov-pihole-badge"></span></div><div class="mini-kv" id="ov-pihole"><div class="k skeleton">…</div><div class="v"></div></div></div>
+          <div class="glass"><div class="glass-head"><h2>Router</h2><span id="ov-router-badge"></span></div><div class="mini-kv" id="ov-router"><div class="k skeleton">…</div><div class="v"></div></div></div>
+          <div class="glass"><div class="glass-head"><h2>Connectivity</h2><span id="ov-net-badge"></span></div><div class="mini-kv" id="ov-net"><div class="k skeleton">…</div><div class="v"></div></div></div>
+        </div>
+
+        <div class="grid-2">
+          <div class="glass span-2wide">
+            <div class="glass-head"><h2>Query Activity · 24 Hours</h2>
+              <div class="legend"><span class="lg lg-a">Total</span><span class="lg lg-b">Blocked</span><span class="lg lg-e">Allowed</span></div></div>
+            <div class="chart-wrap">
+              <canvas id="historyChart" class="chart"></canvas>
+              <div class="chart-tip" id="historyTip"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid-3">
+          <div class="glass">
+            <div class="glass-head"><h2>Pi-hole System</h2><span class="mono dim" id="uptimeLabel">—</span></div>
+            <div class="gauges">
+              <div class="gauge" id="g-cpu"></div>
+              <div class="gauge" id="g-ram"></div>
+              <div class="gauge" id="g-temp"></div>
+            </div>
+            <div class="mini-kv" id="sysMini"></div>
+          </div>
+          <div class="glass">
+            <div class="glass-head"><h2>Query Types</h2></div>
+            <div class="donut-wrap"><canvas id="typesDonut" width="160" height="160"></canvas><div class="donut-legend" id="typesLegend"></div></div>
+          </div>
+          <div class="glass">
+            <div class="glass-head"><h2>Upstreams</h2></div>
+            <div class="bar-list" id="upstreams"></div>
+          </div>
+        </div>
+
+        <div class="grid-3">
+          <div class="glass"><div class="glass-head"><h2>Top Blocked</h2></div><div class="bar-list" id="topBlocked"></div></div>
+          <div class="glass"><div class="glass-head"><h2>Top Permitted</h2></div><div class="bar-list" id="topPermitted"></div></div>
+          <div class="glass"><div class="glass-head"><h2>Top Clients</h2></div><div class="bar-list" id="topClients"></div></div>
+        </div>
+      </section>
+
+      <!-- ============ NETWORK MAP (MESH) ============ -->
+      <section class="section" id="s-mesh">
+        <div class="insight-row" id="meshStats"></div>
+        <div class="ap-strip" id="apStrip"></div>
+        <div class="glass">
+          <div class="glass-head">
+            <h2>Live Network Map <span class="count-pill" id="meshCount">0</span></h2>
+            <div class="row-actions">
+              <span class="mono dim" id="meshUpdated"></span>
+              <div class="legend"><span class="lg lg-a">Active (under 15 min)</span><span class="lg lg-c">Idle (under 2 h)</span><span class="lg lg-d">Inactive</span></div>
+            </div>
+          </div>
+          <div class="mesh-wrap" id="meshWrap">
+            <svg id="meshSvg" viewBox="0 0 1000 660" preserveAspectRatio="xMidYMid meet"></svg>
+            <div class="mesh-tools">
+              <button class="btn btn-icon btn-sm" id="meshZoomIn" title="Zoom in" aria-label="Zoom in">+</button>
+              <span class="zoom-label mono" id="meshZoomLabel">100%</span>
+              <button class="btn btn-icon btn-sm" id="meshZoomOut" title="Zoom out" aria-label="Zoom out">−</button>
+              <button class="btn btn-sm" id="meshFitView" title="Reset zoom &amp; pan">Fit</button>
+              <button class="btn btn-sm" id="meshModeBtn" title="Switch between force-directed and tiered layout">Auto</button>
+              <button class="btn btn-sm" id="meshResetLayout" title="Restore automatic node placement">Reset layout</button>
+            </div>
+            <div class="mesh-tip" id="meshTip"></div>
+          </div>
+          <div class="mesh-legend" id="meshLegend"></div>
+          <p class="hint">Three tiers: <b>Internet → Router → Access Points → Devices</b>. A device appears beneath an access point only when that access point reports it as associated to a radio (cyan = 2.4 GHz, violet = 5 GHz). Wired devices appear beneath the router: a solid link means the router can see the device MAC address, a dashed link means the device sits behind an unmanaged switch. Node size indicates DNS query volume. Hover for details, or select a node to view its queries. Latency is measured by TCP probe where a port is reachable; devices with no open ports, including most phones and wearables, show “—”.</p>
+        </div>
+        <div class="grid-2">
+          <div class="glass">
+            <div class="glass-head"><h2>Wi-Fi Health <span class="count-pill" id="wifiScore">—</span></h2></div>
+            <div class="sig-bars" id="wifiBars"></div>
+            <div class="sec-list" id="wifiAdvice"></div>
+            <div class="table-wrap" style="margin-top:6px"><table class="dt" id="wifiTable">
+              <thead><tr><th>Client</th><th>AP</th><th>Band</th><th class="num">Signal</th><th>Quality</th></tr></thead><tbody></tbody></table></div>
+          </div>
+          <div class="glass">
+            <div class="glass-head"><h2>Roaming Activity <span class="count-pill" id="roamCount">0</span></h2><span class="mono dim" id="roamSince"></span></div>
+            <div id="roamTimeline"></div>
+            <div class="table-wrap" style="margin-top:12px"><table class="dt" id="roamTable">
+              <thead><tr><th>When</th><th>Device</th><th>Movement</th><th>Held</th></tr></thead><tbody></tbody></table></div>
+          </div>
+        </div>
+
+        <div class="glass">
+          <div class="glass-head"><h2>Devices <span class="count-pill" id="meshDevCount">0</span></h2><input type="search" id="meshFilter" placeholder="filter name / IP / vendor / AP…" /></div>
+          <div class="table-wrap"><table class="dt" id="meshTable">
+            <thead><tr><th>Device</th><th>IP</th><th>Vendor</th><th>Connection</th><th class="num">Signal</th><th class="num">Latency</th><th>Connected For</th><th>Last Active</th><th class="num">Queries</th></tr></thead>
+            <tbody></tbody></table></div>
+        </div>
+      </section>
+
+      <!-- ============ INSIGHTS ============ -->
+      <section class="section" id="s-insights">
+        <div class="insight-row" id="insightHeadline"></div>
+
+        <div class="grid-2">
+          <div class="glass span-2wide">
+            <div class="glass-head"><h2>Client Activity Breakdown <span class="mono dim" id="whoSample"></span></h2><input type="search" id="whoFilter" placeholder="filter client…" /></div>
+            <div class="table-wrap"><table class="dt" id="whoTable">
+              <thead><tr><th>Client</th><th class="num">Queries</th><th class="num">Blocked</th><th class="num">Block %</th><th class="num">Unique Domains</th><th>Most Requested</th></tr></thead><tbody></tbody></table></div>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="glass">
+            <div class="glass-head"><h2>Security &amp; Posture <span class="count-pill" id="secScore">—</span></h2></div>
+            <div class="sec-list" id="secList"></div>
+          </div>
+          <div class="glass">
+            <div class="glass-head"><h2>Recently Blocked</h2></div>
+            <div class="bar-list" id="recentBlocked"></div>
+          </div>
+        </div>
+
+        <div class="glass">
+          <div class="glass-head"><h2>Manageable Controls · quick reference</h2></div>
+          <div class="controls-grid" id="controlsGrid"></div>
+        </div>
+      </section>
+
+      <!-- ============ QUERY LOG ============ -->
+      <section class="section fill" id="s-queries">
+        <div class="glass stretch">
+          <div class="glass-head">
+            <h2>Live Query Stream</h2>
+            <div class="row-actions">
+              <label class="switch-sm"><input type="checkbox" id="queryLive" checked><span></span>Live</label>
+              <label class="switch-sm"><input type="checkbox" id="queryIcons" checked><span></span>Icons</label>
+              <input type="search" id="queryFilter" placeholder="filter domain / client…" />
+              <select id="queryCount"><option>100</option><option>250</option><option>500</option></select>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table class="dt" id="queriesTable">
+              <thead><tr><th>Time</th><th>Type</th><th>Domain</th><th>Client</th><th>Status</th><th>Reply</th><th></th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ AUTOMATION ============ -->
+      <section class="section" id="s-automation">
+        <div class="glass">
+          <div class="glass-head"><h2>Automation Engine</h2>
+            <div class="row-actions">
+              <button class="btn btn-sm" id="autoSettingsBtn">Engine Settings</button>
+              <button class="btn btn-sm btn-danger" id="autoPanicBtn">Emergency Stop</button>
+            </div>
+          </div>
+          <div class="auto-hud">
+            <div class="auto-state">
+              <span class="auto-lamp" id="autoLamp"></span>
+              <div><b id="autoStateText">Loading…</b><span id="autoStateSub">—</span></div>
+            </div>
+            <div class="mini-kv" id="autoKv"></div>
+          </div>
+          <p class="hint" id="autoMsg"></p>
+        </div>
+
+        <div class="glass">
+          <div class="glass-head"><h2>Add Automation</h2>
+            <span class="hint" style="margin:0">Every automation is created disarmed. Review the checks, then arm it explicitly.</span>
+          </div>
+          <div class="tpl-grid" id="autoTemplates"></div>
+
+          <!-- Same chrome as the regex Pattern Builder: intent, generated
+               description, graded checks, then an explicit two-stage commit. -->
+          <div class="builder" id="autoBuilder" role="group" aria-labelledby="abTitle" hidden>
+            <div class="pb-head">
+              <h3 id="abTitle">Automation Builder</h3>
+              <p class="hint" id="abBlurb"></p>
+            </div>
+            <div class="pb-grid" id="abFields"></div>
+            <div class="pb-out">
+              <div class="pb-out-head"><span>What this will do</span><span class="mono" id="abRole"></span></div>
+              <code class="pb-code mono" id="abSentence">—</code>
+              <div id="abNotes"></div>
+            </div>
+            <p class="vh" id="abStatus" role="status" aria-live="polite" aria-atomic="true"></p>
+            <div class="row-actions">
+              <button class="btn btn-primary" type="button" id="abSave">Save Disarmed</button>
+              <button class="btn" type="button" id="abSimulate">Simulate</button>
+              <button class="btn btn-ghost" type="button" id="abCancel">Cancel</button>
+              <p class="hint" id="abMsg"></p>
+            </div>
+          </div>
+        </div>
+
+        <div class="glass">
+          <div class="glass-head"><h2>Automations <span class="count-pill" id="autoCount">0</span></h2></div>
+          <div class="auto-list" id="autoList"></div>
+        </div>
+
+        <div class="grid-2">
+          <div class="glass">
+            <div class="glass-head"><h2>Activity <span class="count-pill" id="autoEventCount">0</span></h2>
+              <button class="btn btn-sm" id="autoAckBtn">Acknowledge All</button>
+            </div>
+            <div class="tl" id="autoEvents"></div>
+          </div>
+          <div class="glass">
+            <div class="glass-head"><h2>Run History</h2></div>
+            <div class="table-wrap" style="max-height:340px"><table class="dt" id="autoRuns">
+              <thead><tr><th scope="col">When</th><th scope="col">Automation</th><th scope="col">Source</th><th scope="col">Outcome</th><th scope="col">Detail</th></tr></thead>
+              <tbody></tbody></table></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ DOMAINS ============ -->
+      <section class="section fill" id="s-domains">
+        <div class="glass" id="domainAddCard">
+          <div class="glass-head"><h2>Add Managed Domain</h2></div>
+
+          <form class="form-grid" id="addDomainForm" novalidate>
+            <label class="pb-field"><span>Domain or pattern</span>
+              <input type="text" id="domainInput" placeholder="ads.example.com" autocomplete="off" spellcheck="false" aria-describedby="domainMsg" /></label>
+            <label class="pb-field"><span>Type</span>
+              <select id="domainType" autocomplete="off"><option value="allow">Allow</option><option value="deny">Deny</option></select></label>
+            <label class="pb-field"><span>Match Type</span>
+              <select id="domainKind" autocomplete="off"><option value="exact">Exact match</option><option value="regex">Pattern (regex)</option></select></label>
+            <label class="pb-field"><span>Group</span>
+              <select id="domainGroupSel" autocomplete="off"></select></label>
+            <label class="pb-field"><span>Comment</span>
+              <input type="text" id="domainComment" placeholder="Optional" autocomplete="off" /></label>
+            <div class="fg-actions">
+              <!-- type="button" is mandatory: a bare <button> inside a <form> defaults to submit. -->
+              <button class="btn" type="button" id="patternBtn" aria-controls="patternBuilder" aria-expanded="false" hidden>Build Pattern</button>
+              <button class="btn btn-primary" type="submit" id="addDomainBtn">Add</button>
+            </div>
+          </form>
+          <p class="hint" id="domainMsg" role="status"></p>
+
+          <!-- Pattern builder. Visibility is derived solely from syncDomainMode() in app.js;
+               it must stay OUTSIDE #addDomainForm so its controls never submit the form. -->
+          <div class="pattern-builder" id="patternBuilder" role="group" aria-labelledby="pbTitle" hidden>
+            <div class="pb-head">
+              <h3 id="pbTitle">Pattern Builder</h3>
+              <p class="hint">Pi-hole evaluates POSIX Extended Regular Expressions against the queried domain in lowercase. Perl shorthands such as <span class="mono">\d</span> and lookarounds are not supported.</p>
+            </div>
+            <div class="pb-grid">
+              <label class="pb-field">
+                <span>Intent</span>
+                <select id="pbKind" autocomplete="off">
+                  <option value="subdomains">Domain and all subdomains</option>
+                  <option value="exact">That exact domain only</option>
+                  <option value="subonly">Subdomains only, not the domain itself</option>
+                  <option value="contains">Any domain containing a keyword</option>
+                  <option value="prefix">Any host name starting with</option>
+                  <option value="numbered">Numbered hosts, such as ads1, ads2</option>
+                  <option value="tld">Any domain in a top-level domain</option>
+                  <option value="all">Every domain (full lockdown)</option>
+                  <option value="custom">Write the pattern manually</option>
+                </select>
+              </label>
+              <label class="pb-field" id="pbValueWrap">
+                <span id="pbValueLabel">Domain</span>
+                <input type="text" id="pbValue" placeholder="example.com" autocomplete="off" spellcheck="false" />
+              </label>
+              <label class="pb-field" id="pbHostWrap" hidden>
+                <span>Host prefix</span>
+                <input type="text" id="pbHost" placeholder="ads" autocomplete="off" spellcheck="false" />
+              </label>
+            </div>
+
+            <div class="pb-out">
+              <div class="pb-out-head"><span>Generated pattern</span>
+                <button class="btn btn-sm" type="button" id="pbCopy">Copy</button></div>
+              <code class="pb-code mono" id="pbPattern">&mdash;</code>
+              <div id="pbLint"></div>
+            </div>
+
+            <div class="pb-test">
+              <div class="pb-out-head"><span>Test against sample domains</span>
+                <span class="mono" id="pbTestSummary"></span></div>
+              <textarea id="pbTest" rows="4" spellcheck="false" aria-label="Test domains, one per line"></textarea>
+              <div class="pb-results" id="pbResults" role="list" aria-label="Sample domain results"></div>
+            </div>
+
+            <!-- Single polite region for the whole builder. The per-keystroke nodes
+                 (#pbPattern, #pbLint, #pbResults) are deliberately NOT live. -->
+            <p class="vh" id="pbStatus" role="status" aria-live="polite" aria-atomic="true"></p>
+
+            <div class="row-actions">
+              <button class="btn btn-primary" type="button" id="pbUse">Load Into Form</button>
+              <button class="btn btn-ghost" type="button" id="pbClose">Close</button>
+              <p class="hint" id="pbMsg"></p>
+            </div>
+          </div>
+        </div>
+
+        <div class="glass stretch">
+          <div class="glass-head"><h2 id="domainsTableHead">Managed Domains <span class="count-pill" id="domainCount">0</span></h2>
+            <div class="row-actions">
+              <select id="domainTypeFilter" autocomplete="off" aria-label="Filter by type"><option value="">All types</option><option value="allow">Allow</option><option value="deny">Deny</option></select>
+              <select id="domainKindFilter" autocomplete="off" aria-label="Filter by match type"><option value="">All match types</option><option value="exact">Exact</option><option value="regex">Pattern</option></select>
+              <input type="search" id="domainFilter" placeholder="Filter domain or comment&hellip;" aria-label="Filter managed domains" />
+            </div>
+          </div>
+          <div class="table-wrap"><table class="dt" id="domainsTable" aria-labelledby="domainsTableHead">
+            <thead><tr><th scope="col">Domain</th><th scope="col">Type</th><th scope="col">Match Type</th><th scope="col">Groups</th><th scope="col">Comment</th><th scope="col">Enabled</th><th scope="col"><span class="vh">Actions</span></th></tr></thead><tbody></tbody></table></div>
+        </div>
+      </section>
+
+      <section class="section fill" id="s-lists">
+        <div class="glass stretch">
+          <div class="glass-head"><h2>Filter Lists <span class="count-pill" id="listCount">0</span></h2>
+            <button class="btn btn-primary" id="gravityBtn">⟳ Update Gravity</button></div>
+          <div class="form-row">
+            <input type="text" id="listInput" placeholder="https://example.com/hosts.txt" aria-label="Filter list URL" />
+            <select id="listType" aria-label="Filter list type"><option value="block">Blocklist</option><option value="allow">Allowlist</option></select>
+            <input type="text" id="listComment" placeholder="comment (optional)" aria-label="Comment" />
+            <button class="btn btn-primary" id="addListBtn">Add Filter List</button>
+          </div>
+          <p class="hint" id="listMsg"></p>
+          <div class="table-wrap"><table class="dt" id="listsTable">
+            <thead><tr><th>Address</th><th>Type</th><th class="num">Domains</th><th>Comment</th><th>Enabled</th><th></th></tr></thead><tbody></tbody></table></div>
+        </div>
+      </section>
+
+      <!-- ============ GROUPS ============ -->
+      <section class="section fill" id="s-groups">
+        <div class="glass stretch">
+          <div class="glass-head"><h2>Add Group</h2></div>
+          <div class="form-row">
+            <input type="text" id="groupName" placeholder="group name" aria-label="Group name" />
+            <input type="text" id="groupComment" placeholder="comment (optional)" aria-label="Comment" />
+            <button class="btn btn-primary" id="addGroupBtn">Add Group</button>
+          </div>
+          <p class="hint" id="groupMsg"></p>
+          <div class="table-wrap"><table class="dt" id="groupsTable">
+            <thead><tr><th>Name</th><th>Comment</th><th>Enabled</th><th></th></tr></thead><tbody></tbody></table></div>
+        </div>
+      </section>
+
+      <!-- ============ CLIENTS ============ -->
+      <section class="section fill" id="s-clients">
+        <div class="glass stretch">
+          <div class="glass-head"><h2>Add Client</h2></div>
+          <div class="form-row">
+            <input type="text" id="clientId" placeholder="MAC, IP, hostname or interface" aria-label="Client" />
+            <input type="text" id="clientComment" placeholder="comment (optional)" aria-label="Comment" />
+            <button class="btn btn-primary" id="addClientBtn">Add Client</button>
+          </div>
+          <p class="hint" id="clientMsg"></p>
+          <div class="table-wrap"><table class="dt" id="clientsTable">
+            <thead><tr><th>Client</th><th>Comment</th><th>Groups</th><th></th></tr></thead><tbody></tbody></table></div>
+        </div>
+      </section>
+
+      <!-- ============ LOCAL DNS ============ -->
+      <section class="section" id="s-localdns">
+        <div class="grid-2">
+          <div class="glass">
+            <div class="glass-head"><h2>A / AAAA Records</h2></div>
+            <div class="form-row">
+              <input type="text" id="hostIp" placeholder="192.168.1.50" aria-label="IP address" />
+              <input type="text" id="hostName" placeholder="server.lan" aria-label="Hostname" />
+              <button class="btn btn-primary" id="addHostBtn">Add</button>
+            </div>
+            <p class="hint" id="hostMsg"></p>
+            <div class="table-wrap"><table class="dt" id="hostsTable">
+              <thead><tr><th>IP Address</th><th>Hostname</th><th></th></tr></thead><tbody></tbody></table></div>
+          </div>
+          <div class="glass">
+            <div class="glass-head"><h2>CNAME Records</h2></div>
+            <div class="form-row">
+              <input type="text" id="cnameDomain" placeholder="alias.lan" aria-label="Alias" />
+              <input type="text" id="cnameTarget" placeholder="server.lan" aria-label="Target" />
+              <button class="btn btn-primary" id="addCnameBtn">Add</button>
+            </div>
+            <p class="hint" id="cnameMsg"></p>
+            <div class="table-wrap"><table class="dt" id="cnameTable">
+              <thead><tr><th>Alias</th><th>Target</th><th></th></tr></thead><tbody></tbody></table></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ DHCP ============ -->
+      <section class="section" id="s-dhcp">
+        <div class="glass">
+          <div class="glass-head"><h2>DHCP Server</h2><span id="dhcpStatus"></span></div>
+          <div class="mini-kv" id="dhcpInfo"></div>
+        </div>
+        <div class="grid-2">
+          <div class="glass">
+            <div class="glass-head"><h2>Active Leases <span class="count-pill" id="leaseCount">0</span></h2></div>
+            <div class="table-wrap"><table class="dt" id="leasesTable">
+              <thead><tr><th>IP</th><th>Name</th><th>MAC</th></tr></thead><tbody></tbody></table></div>
+          </div>
+          <div class="glass">
+            <div class="glass-head"><h2>Static Leases <span class="count-pill" id="staticCount">0</span></h2></div>
+            <div class="form-row">
+              <input type="text" id="staticMac" placeholder="aa:bb:cc:dd:ee:ff" aria-label="MAC" />
+              <input type="text" id="staticIp" placeholder="192.168.1.50" aria-label="IP" />
+              <input type="text" id="staticName" placeholder="name" aria-label="Name" />
+              <button class="btn btn-primary" id="addStaticBtn">Add</button>
+            </div>
+            <p class="hint" id="staticMsg"></p>
+            <div class="table-wrap"><table class="dt" id="staticTable">
+              <thead><tr><th>MAC</th><th>IP</th><th>Name</th><th></th></tr></thead><tbody></tbody></table></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ GATEWAY ============ -->
+      <section class="section" id="s-gateway">
+        <div class="insight-row" id="gwHeadline"></div>
+
+        <div class="grid-2">
+          <div class="glass">
+            <div class="glass-head"><h2>Connection Path</h2><span class="mono dim" id="gwUpdated"></span></div>
+            <div class="path-flow" id="pathFlow"></div>
+          </div>
+          <div class="glass">
+            <div class="glass-head"><h2>Router</h2></div>
+            <div class="mini-kv" id="routerInfo"></div>
+            <div class="row-actions" style="margin-top:14px">
+              <a class="btn" id="routerAdminLink" target="_blank" rel="noopener">↗ Open Router Admin</a>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="glass">
+            <div class="glass-head"><h2>WAN / Internet Identity</h2><button class="btn btn-sm" id="wanLookupBtn">Look up</button></div>
+            <div class="mini-kv" id="wanInfo"><div class="k dim">Click "Look up"</div><div class="v">to fetch public IP &amp; ISP</div></div>
+            <p class="hint" style="margin-top:8px">Queries an external service to resolve the public IP address. The request is sent only when Look up is selected.</p>
+          </div>
+          <div class="glass">
+            <div class="glass-head"><h2>Router + Pi-hole Insight</h2></div>
+            <div class="sec-list" id="gwInsight"></div>
+          </div>
+        </div>
+
+        <div class="glass" id="deepRouterCard">
+          <div class="glass-head"><h2>Router Telemetry (live login) <span id="routerLiveBadge"></span></h2></div>
+          <div id="routerLiveBody">
+            <div class="grid-3">
+              <div class="glass"><div class="gauges" id="routerGauges"></div></div>
+              <div class="glass"><div class="mini-kv" id="routerHw"></div></div>
+              <div class="glass"><div class="mini-kv" id="routerWifi"></div></div>
+            </div>
+            <div class="glass" style="margin:0 0 16px">
+              <div class="glass-head"><h2>Router Load Over Time</h2>
+                <div class="legend"><span class="lg lg-a">CPU</span><span class="lg lg-c">RAM</span><span class="mono dim" id="routerHistMeta"></span></div>
+              </div>
+              <div class="chart-wrap"><canvas id="routerHistChart" class="chart"></canvas></div>
+            </div>
+            <div class="sec-list" id="routerCrossInsight"></div>
+            <div class="glass-head" style="margin-top:8px"><h2>Devices seen by the router <span class="count-pill" id="routerDevCount">0</span></h2></div>
+            <div class="table-wrap"><table class="dt" id="routerDevTable">
+              <thead><tr><th>Hostname</th><th>IP</th><th>MAC</th><th>Link</th></tr></thead><tbody></tbody></table></div>
+          </div>
+          <div class="mini-kv" id="deepRouterInfo"></div>
+        </div>
+      </section>
+
+      <!-- ============ ROUTERS & APs (INFRASTRUCTURE) ============ -->
+      <section class="section" id="s-infra">
+        <div class="insight-row" id="infraStats"></div>
+        <div class="infra-grid" id="infraCards"></div>
+
+        <div class="grid-2">
+          <div class="glass">
+            <div class="glass-head"><h2>Gateway DHCP Leases <span class="count-pill" id="infraLeaseCount">0</span></h2>
+              <input type="search" id="infraLeaseFilter" placeholder="filter…" /></div>
+            <div class="table-wrap"><table class="dt" id="infraLeaseTable">
+              <thead><tr><th>IP</th><th>Hostname</th><th>MAC</th><th>Lease</th></tr></thead><tbody></tbody></table></div>
+          </div>
+          <div class="glass">
+            <div class="glass-head"><h2>WAN / Uplink</h2></div>
+            <div class="mini-kv" id="infraWan"></div>
+            <p class="hint">Reported by the gateway itself — this is the real ISP-facing state, not a probe.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ NETWORK ============ -->
+      <section class="section fill" id="s-network">
+        <div class="glass">
+          <div class="glass-head"><h2>Gateway</h2></div>
+          <div class="mini-kv" id="gatewayInfo"></div>
+        </div>
+        <div class="glass stretch">
+          <div class="glass-head"><h2>Discovered Devices <span class="count-pill" id="deviceCount">0</span></h2><input type="search" id="deviceFilter" placeholder="filter…" /></div>
+          <div class="table-wrap"><table class="dt" id="devicesTable">
+            <thead><tr><th>IP(s)</th><th>MAC</th><th>Vendor</th><th class="num">Queries</th><th>Last Seen</th></tr></thead><tbody></tbody></table></div>
+        </div>
+      </section>
+
+      <!-- ============ DIAGNOSTICS ============ -->
+      <section class="section" id="s-diagnostics">
+        <div class="grid-2">
+          <div class="glass"><div class="glass-head"><h2>System Metrics</h2></div><div class="mini-kv" id="diagSystem"></div></div>
+          <div class="glass"><div class="glass-head"><h2>FTL Engine</h2></div><div class="mini-kv" id="diagFtl"></div></div>
+        </div>
+        <div class="glass"><div class="glass-head"><h2>dnsmasq Cache &amp; DHCP</h2></div><div class="mini-kv cols3" id="diagDnsmasq"></div></div>
+        <div class="glass">
+          <div class="glass-head"><h2>Pi-hole Diagnosis <span class="count-pill" id="msgCount">0</span></h2></div>
+          <div id="diagMessages"></div>
+        </div>
+      </section>
+
+      <!-- ============ BACKUP / RESTORE ============ -->
+      <section class="section" id="s-backup">
+        <div class="grid-2">
+          <div class="glass">
+            <div class="glass-head"><h2>Export Configuration</h2></div>
+            <p class="hint" style="margin-top:0">Download a complete Teleporter archive of the Pi-hole configuration — filter lists, domains, groups, clients, local DNS, DHCP and DNS settings — as a single <span class="mono">.zip</span> file that can be re-imported at any time.</p>
+            <div class="row-actions" style="margin-top:14px">
+              <button class="btn btn-primary" id="exportBtn">⬇ Download Backup</button>
+              <span class="hint" id="exportMsg" style="margin:0"></span>
+            </div>
+          </div>
+          <div class="glass">
+            <div class="glass-head"><h2>⬆ Restore Configuration</h2></div>
+            <p class="hint" style="margin-top:0">Upload a Teleporter <span class="mono">.zip</span> file to restore configuration. Matching settings on the target Pi-hole are <b>overwritten</b>.</p>
+            <div class="form-row" style="margin-top:14px">
+              <input type="file" id="restoreFile" accept=".zip,application/zip" aria-label="Backup file" />
+              <button class="btn btn-danger" id="restoreBtn">Restore</button>
+            </div>
+            <p class="hint" id="restoreMsg"></p>
+            <div class="mini-kv" id="restoreResult" style="margin-top:10px"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ ADMIN ============ -->
+      <section class="section" id="s-admin">
+        <div class="glass">
+          <div class="glass-head"><h2>Users <span class="count-pill" id="userCount">0</span></h2></div>
+          <div class="form-row">
+            <input type="text" id="newUser" placeholder="username" aria-label="New username" autocomplete="off" />
+            <input type="password" id="newPass" placeholder="password (min 8 chars)" aria-label="New password" autocomplete="new-password" />
+            <select id="newRole" aria-label="Role">
+              <option value="reader">Reader</option>
+              <option value="contributor">Contributor</option>
+              <option value="admin">Admin</option>
+            </select>
+            <button class="btn btn-primary" id="addUserBtn">Add User</button>
+          </div>
+          <p class="hint" id="userMsg"></p>
+          <div class="table-wrap"><table class="dt" id="usersTable">
+            <thead><tr><th>Username</th><th>Role</th><th>Created</th><th>Last login</th><th></th></tr></thead><tbody></tbody></table></div>
+          <div class="role-legend">
+            <div><span class="pill gray">reader</span> Read-only access to every section. Cannot apply changes.</div>
+            <div><span class="pill blue">contributor</span> DNS blocking, domains, filter lists, groups, clients, local DNS, DHCP reservations, gravity updates and cache flushes.</div>
+            <div><span class="pill violet">admin</span> All contributor permissions, plus DNS and upstream configuration, device restart and radio control, configuration restore, and this panel.</div>
+          </div>
+        </div>
+
+        <div class="glass">
+          <div class="glass-head"><h2>DNS Filtering — Pi-hole Instances <span class="count-pill" id="phCfgCount">0</span></h2>
+            <button class="btn btn-sm" id="addPhBtn">Add Instance</button></div>
+          <p class="hint" style="margin-top:0">Add more than one instance to manage a redundant pair. The first entry is the primary and is used by default; the header selector switches which instance the other sections act on, and the Overview reports a combined rollup.</p>
+          <div id="phConfigList"></div>
+          <label class="switch-sm" style="margin-top:10px"><input type="checkbox" id="cfgPiholeTls"><span></span>Accept self-signed TLS certificates</label>
+          <p class="hint" id="piholeCfgMsg"></p>
+        </div>
+
+        <div class="glass">
+          <div class="glass-head"><h2>Gateway Router</h2></div>
+          <div class="form-row">
+            <input type="text" id="cfgGwHost" placeholder="192.168.1.1" aria-label="Gateway IP" />
+            <input type="text" id="cfgGwLabel" placeholder="model / label" aria-label="Gateway model" />
+            <input type="text" id="cfgGwUser" placeholder="user" aria-label="Gateway username" />
+            <input type="password" id="cfgGwPw" placeholder="password (blank = unchanged)" aria-label="Gateway password" autocomplete="off" />
+          </div>
+          <div class="form-row">
+            <select id="cfgGwVendor" aria-label="Gateway vendor"></select>
+            <select id="cfgGwDriver" aria-label="Gateway model / driver"></select>
+            <button class="btn" id="testGwBtn">Test</button>
+          </div>
+          <p class="hint">Leave the model set to <b>Auto-detect</b> unless detection fails; if it does, select the matching device family from the list. Many ISP fibre gateways restrict the <span class="mono">admin</span> account — if it is rejected, try <span class="mono">user</span>. The test result reports which model was matched so it can be selected explicitly.</p>
+          <p class="hint" id="gwCfgMsg"></p>
+        </div>
+
+        <div class="glass">
+          <div class="glass-head"><h2>Access Points <span class="count-pill" id="apCfgCount">0</span></h2>
+            <button class="btn btn-sm" id="addApBtn">+ Add AP</button></div>
+          <div id="apConfigList"></div>
+          <p class="hint" id="apCfgMsg"></p>
+        </div>
+
+        <div class="glass">
+          <div class="glass-head"><h2>Supported Hardware <span class="count-pill" id="driverCount">0</span></h2><span id="vendorSummary" class="mono dim"></span>
+            <input type="search" id="driverFilter" placeholder="search model…" /></div>
+          <p class="hint" style="margin-top:0">Every router, gateway, access point, extender and switch this release can manage. Auto-detect evaluates them in order; selecting the correct model explicitly makes connections faster and more reliable.</p>
+          <div class="driver-list" id="driverList"></div>
+        </div>
+
+        <div class="glass">
+          <div class="glass-head"><h2>Save</h2></div>
+          <div class="row-actions">
+            <button class="btn btn-primary" id="saveCfgBtn">Save configuration</button>
+            <button class="btn" id="reloadCfgBtn">Discard changes</button>
+          </div>
+          <p class="hint">Changes take effect immediately and device connections are re-established without a restart. Passwords left blank keep their stored value.</p>
+          <p class="hint" id="saveCfgMsg"></p>
+        </div>
+
+      </section>
+
+      <!-- ============ PROFILE ============ -->
+      <section class="section" id="s-profile">
+        <div class="prof-grid">
+          <div class="glass">
+            <div class="glass-head"><h2>Photo</h2></div>
+            <div class="prof-photo">
+              <span class="prof-avatar" id="pfAvatar" role="img" aria-label="Your profile photo">&mdash;</span>
+              <div class="prof-photo-actions">
+                <!-- accept= is a convenience filter only; the server validates by
+                     magic bytes, because both the filename and the browser's
+                     Content-Type are attacker-controlled. -->
+                <input type="file" id="pfFile" class="vh-input"
+                       accept="image/png,image/jpeg,image/webp" />
+                <label class="btn btn-primary" for="pfFile">Choose Image</label>
+                <button class="btn btn-ghost" type="button" id="pfRemove">Remove</button>
+                <p class="hint" id="pfPhotoMsg">PNG, JPEG or WebP, up to 512&nbsp;KB. SVG is not accepted.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="glass">
+            <div class="glass-head"><h2>Your Details</h2></div>
+            <form class="form-grid prof-form" id="pfForm" novalidate>
+              <label class="pb-field"><span>Full name</span>
+                <input type="text" id="pfName" maxlength="80" autocomplete="name" /></label>
+              <label class="pb-field"><span>Nickname</span>
+                <input type="text" id="pfNick" maxlength="40" autocomplete="nickname" /></label>
+              <label class="pb-field"><span>Date of birth</span>
+                <input type="date" id="pfDob" /></label>
+              <label class="pb-field"><span>Title</span>
+                <input type="text" id="pfTitle" maxlength="80" placeholder="Network administrator" /></label>
+              <label class="pb-field"><span>Location</span>
+                <input type="text" id="pfLoc" maxlength="80" placeholder="Chennai, IN" /></label>
+              <label class="pb-field"><span>Time zone</span>
+                <input type="text" id="pfTz" maxlength="64" placeholder="Asia/Kolkata" spellcheck="false" /></label>
+              <div class="fg-actions">
+                <button class="btn btn-primary" type="submit" id="pfSave">Save Changes</button>
+              </div>
+            </form>
+            <p class="hint" id="pfMsg" role="status"></p>
+          </div>
+        </div>
+
+        <div class="glass">
+          <div class="glass-head"><h2>Account</h2>
+            <span class="hint" style="margin:0">Your role is set by an administrator and cannot be changed here.</span>
+          </div>
+          <div class="mini-kv" id="pfAccount"></div>
+        </div>
+
+        <div class="glass">
+          <div class="glass-head"><h2>Change Password</h2>
+            <span class="hint" style="margin:0">Changing your password signs you out of every other browser and device. This session stays signed in.</span>
+          </div>
+          <form class="form-grid prof-form" id="pwForm" novalidate>
+            <label class="pb-field"><span>Current password</span>
+              <input type="password" id="ownCur" autocomplete="current-password" required /></label>
+            <label class="pb-field"><span>New password</span>
+              <input type="password" id="ownNew" autocomplete="new-password" minlength="8" required
+                     aria-describedby="pwRule" /></label>
+            <label class="pb-field"><span>Confirm new password</span>
+              <input type="password" id="ownNew2" autocomplete="new-password" required /></label>
+            <div class="fg-actions">
+              <button class="btn btn-primary" type="submit" id="ownPwBtn">Change Password</button>
+            </div>
+          </form>
+          <p class="hint" id="pwRule">At least 8 characters.</p>
+          <p class="hint" id="ownPwMsg" role="status"></p>
+        </div>
+      </section>
+
+      <!-- ============ SETTINGS ============ -->
+      <section class="section" id="s-settings">
+        <div class="glass">
+          <div class="glass-head"><h2>Upstream DNS Servers</h2></div>
+          <div class="form-row">
+            <input type="text" id="upstreamInput" placeholder="1.1.1.1  or  8.8.8.8#53" aria-label="Upstream server" />
+            <button class="btn btn-primary" id="addUpstreamBtn">Add Upstream</button>
+          </div>
+          <p class="hint" id="upstreamMsg"></p>
+          <div class="chip-list" id="upstreamList"></div>
+        </div>
+        <div class="glass">
+          <div class="glass-head"><h2>DNS Options</h2></div>
+          <div class="toggle-list" id="dnsToggles"></div>
+        </div>
+        <div class="glass">
+          <div class="glass-head"><h2>Actions</h2></div>
+          <div class="row-actions wrap">
+            <button class="btn" id="restartDnsBtn">↻ Restart DNS</button>
+            <button class="btn" id="flushLogsBtn">✦ Flush Query Log</button>
+            <button class="btn" id="flushArpBtn">✦ Flush Network Table</button>
+            <button class="btn btn-primary" id="gravityBtn2">⟳ Update Gravity</button>
+          </div>
+          <p class="hint" id="actionMsg"></p>
+        </div>
+        <div class="glass">
+          <div class="glass-head"><h2>System Information</h2></div>
+          <div class="mini-kv" id="settingsInfo"></div>
+        </div>
+      </section>
+    </main>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<!-- Blocking-disable duration picker -->
+<div class="modal-back" id="durationModal">
+  <div class="modal">
+    <h3>Disable blocking for…</h3>
+    <div class="dur-grid">
+      <button class="btn" data-secs="0">Permanent</button>
+      <button class="btn" data-secs="10">10 sec</button>
+      <button class="btn" data-secs="30">30 sec</button>
+      <button class="btn" data-secs="60">1 min</button>
+      <button class="btn" data-secs="300">5 min</button>
+      <button class="btn" data-secs="900">15 min</button>
+    </div>
+    <button class="btn btn-ghost full" id="durationCancel">Cancel</button>
+  </div>
+</div>
+
+<!-- Generic edit modal -->
+<div class="modal-back" id="editModal">
+  <div class="modal">
+    <h3 id="editTitle">Edit</h3>
+    <div id="editBody"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="editCancel">Cancel</button>
+      <button class="btn btn-primary" id="editSave">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Themed confirm dialog (replaces native confirm()) -->
+<div class="modal-back" id="confirmModal">
+  <div class="modal">
+    <h3 id="confirmTitle">Confirm</h3>
+    <p class="hint" id="confirmMsg" style="margin:0 0 18px; white-space:pre-line"></p>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="confirmNo">Cancel</button>
+      <button class="btn btn-danger" id="confirmYes">Confirm</button>
+    </div>
+  </div>
+</div>
+
+  <!-- Command palette: a combobox controlling a listbox, per ARIA APG -->
+  <div class="cp-back" id="cpBack" hidden>
+    <div class="cp" role="dialog" aria-modal="true" aria-label="Command palette">
+      <input class="cp-input" id="cpInput" type="text" role="combobox" aria-expanded="true"
+             aria-controls="cpList" aria-autocomplete="list" autocomplete="off" spellcheck="false"
+             placeholder="Jump to a section, or run an action…" aria-activedescendant="" />
+      <ul class="cp-list" id="cpList" role="listbox" aria-label="Results"></ul>
+      <div class="cp-foot">
+        <span><kbd>↑</kbd><kbd>↓</kbd> navigate</span>
+        <span><kbd>Enter</kbd> run</span>
+        <span><kbd>Esc</kbd> close</span>
+        <span><kbd>?</kbd> shortcuts</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-back" id="scModal">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="scTitle" style="width:min(620px,94vw)">
+      <h3 id="scTitle">Keyboard Shortcuts</h3>
+      <div class="sc-grid" id="scGrid"></div>
+      <div class="modal-actions"><button class="btn" id="scClose">Close</button></div>
+    </div>
+  </div>
+
+<script src="app.js"></script>
+</body>
+</html>

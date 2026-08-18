@@ -1,0 +1,13 @@
+node_modules/
+npm-debug.log*
+.DS_Store
+
+# Secrets — never commit
+.env
+# Runtime state: users.json holds password hashes, config.json holds the
+# plaintext Pi-hole / router / AP credentials entered in the Admin panel.
+data/
+
+# Scheduled Teleporter archives written by the backup automation. These contain
+# the complete Pi-hole configuration — never commit them.
+data/backups/

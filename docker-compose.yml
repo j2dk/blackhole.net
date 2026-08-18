@@ -1,0 +1,47 @@
+# Blackhole.Net — ONE container.
+#
+# The Python vendor drivers (TP-Link / Asus / OpenWrt) used to be a second
+# service. They now run as a supervised child process on loopback inside this
+# same container (sidecar.js), so there is a single image to build, a single
+# thing to restart, and no inter-container network for credentials to cross.
+#
+# NOTE: deliberately NO cpu/memory limits (no `deploy.resources`, `mem_limit` or
+# `cpus`) — the container may use the full host hardware wherever it runs.
+#
+# No secrets appear in this file or in .env. Accounts and device credentials live
+# in data/blackhole.db (SQLite), with device passwords encrypted using
+# data/secret.key, and are managed from the Admin panel.
+services:
+  blackhole:
+    build: .
+    image: blackhole-net:latest
+    container_name: blackhole-net
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      # blackhole.db (accounts, device config, automation rules) and secret.key
+      # (the encryption key for device passwords) live here so they survive
+      # rebuilds.
+      - ./data:/app/data
+    environment:
+      PORT: "3000"
+      DATA_DIR: "/app/data"
+      SESSION_TTL_HOURS: "${SESSION_TTL_HOURS:-12}"
+
+      # Local time zone. Automation schedules are expressed in local time, and a
+      # container defaults to UTC — set this or a 22:00 rule fires at the wrong
+      # hour. Override in .env, e.g. TZ=Asia/Kolkata.
+      TZ: "${TZ:-UTC}"
+
+      # Vendor sidecar: embedded (default) runs it here; `external` talks to a
+      # separately hosted one via ROUTER_SERVICE_URL; `off` disables it.
+      ROUTER_SIDECAR: "${ROUTER_SIDECAR:-embedded}"
+      ROUTER_BIND: "127.0.0.1"
+      ROUTER_PORT: "5000"
+      ROUTER_POLL_INTERVAL: "${ROUTER_POLL_INTERVAL:-20}"
+      AP_POLL_INTERVAL: "${AP_POLL_INTERVAL:-45}"
+
+      # First boot only: password for the auto-created "admin" account when the
+      # database is empty. Blank => generated and printed to this service's log.
+      ADMIN_PASSWORD: "${ADMIN_PASSWORD:-}"

@@ -1,0 +1,15 @@
+# Pinned deliberately: router_service.py monkey-patches the private
+# TPLinkMRClient._parse_ret_val to tolerate firmwares that append a NUL byte to
+# "$.ret=0;". A silent major upgrade could drop that method and break login, so
+# pin exactly and bump only after re-testing the router handshake.
+Flask==3.1.3
+waitress==3.0.2
+tplinkrouterc6u==5.27.0
+
+# Asus (AsusWRT / Merlin) support. Async library — the adapter drives it with
+# asyncio.run() from the sync Flask worker.
+asusrouter==1.21.3
+
+# OpenWrt speaks ubus JSON-RPC over plain HTTP, implemented directly in
+# router/vendors/openwrt.py — requests comes in via tplinkrouterc6u.
+requests>=2.31

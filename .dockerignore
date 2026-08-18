@@ -1,0 +1,9 @@
+node_modules
+npm-debug.log*
+.env
+.git
+.gitignore
+*.log
+README.md
+# runtime secrets live in a mounted volume, never inside the image
+data

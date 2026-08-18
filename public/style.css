@@ -1,0 +1,2007 @@
+/* ===================================================================
+   Pi-hole Command — futuristic HUD theme
+   =================================================================== */
+/* No @font-face import: the app makes zero external requests, so it renders
+   identically with the LAN offline or DNS blackholed. --font and --mono keep
+   naming Inter and JetBrains Mono first, so they are still used when installed
+   locally, and fall back to the platform UI and monospace faces otherwise. */
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ITEM 1 — TOKEN BLOCK.  Replaces/extends :root (style.css:9-57) and
+   :root[data-theme="light"] (style.css:60-103).  Colour + named-value only:
+   nothing here participates in layout.  Every ratio below is measured against
+   the OPAQUE surface it actually lands on, not a composite estimate.
+   ═══════════════════════════════════════════════════════════════════════════ */
+:root[data-theme="dark"] {          /* (0,2,0) — beats the bare :root below */
+  /* ---- page (unchanged) ---- */
+  --bg: #05070e;
+
+  /* ---- SURFACES: an opaque elevation ladder ----
+     Opaque on purpose.  The page's three radial glows (:112-116) are static, so
+     translucency was paying a backdrop-filter to blur a gradient that never
+     moves.  Opaque makes every contrast ratio exactly computable and removes 23
+     compositing layers from Overview.  Measured L*: page 4.5 → card 10.1 →
+     nested 13.6.  --panel was rgba(18,24,42,0.55) ≈ 1.3 L* above the page. */
+  --panel:               #151b2e;   /* CARD                    L* 10.1 */
+  --panel-2:             #1b2238;   /* card nested in a card   L* 13.6  (#s-gateway) */
+  --surface-head:        #10162a;   /* RECESSED: sticky <th>   L*  6.4 */
+  --surface-input:       #0e1322;   /* RECESSED: fields, code wells, tracks */
+  --surface-float:       #1d2540;   /* FLOATING: modal, palette, toast, tooltips */
+  --surface-card-opaque: var(--panel);        /* sticky cells that must match their row */
+  --panel-solid:         var(--surface-float);/* alias: any --panel-solid use not yet remapped */
+
+  --stroke: rgba(120, 160, 255, 0.14);
+  --stroke-strong: rgba(120, 160, 255, 0.30);
+  --hover: rgba(120, 160, 255, 0.05);
+  --track: rgba(120, 160, 255, 0.08);
+  --chip:  rgba(120, 160, 255, 0.07);
+  --grid:  rgba(120, 160, 255, 0.10);
+  --row-line: rgba(120, 160, 255, 0.10);   /* .dt td separator; --hover at 0.05 was invisible */
+
+  /* ---- TEXT.  Two greys, both AA on every surface above.  --muted lightened
+     from #7788ad because the card surface is now lighter.
+       --muted on --panel 5.35:1 · --panel-2 4.72:1 · --chip-over-card 4.80:1
+              · --surface-input 5.79:1 · --surface-float 5.02:1
+       --text  on --panel 13.66:1
+     --dim is DELETED (it measured 3.17:1 as text at 9-13px in 24 selectors and
+     drops to 2.95:1 on the new card).  The alias below keeps the file valid
+     until item 8 does the mechanical remap; delete it when item 8 lands. */
+  --text:  #dbe6ff;
+  --muted: #8090b5;
+
+  /* ---- accents (unchanged base values) ---- */
+  --cyan: #22d3ee;  --violet: #a78bfa; --blue: #4f8bff;
+  --green: #34e5b0; --red: #ff5c7a;    --amber: #ffb547;
+  /* Text-only siblings.  In dark they alias the base; in light they are darkened
+     until AA holds on tinted surfaces.  RULE: base tokens for borders, strokes,
+     dots and SVG marks (3:1); *-text tokens for anything that is `color:` on
+     real text (4.5:1).  Item 7 enforces it. */
+  --cyan-text: var(--cyan); --green-text: var(--green); --red-text: var(--red);
+  --amber-text: var(--amber); --violet-text: var(--violet); --blue-text: var(--blue);
+
+  /* ---- TINTS.  Replaces 54 hardcoded accent rgba() literals (15 green,
+     17 red, 11 cyan, 4 violet, 4 amber, 3 blue), none of which had a light
+     override.  Alphas tuned per hue so *-text clears AA on the new card:
+       green 7.81 · red 4.81 · amber 7.28 · blue 4.67 · violet 5.09
+       cyan 7.81 · neutral(--muted) 4.69     — all ≥4.5:1 */
+  --cyan-fill:    rgba(34, 211, 238, 0.10);   /* pre-existing, measured; keep */
+  --tint-green:   rgba(52, 229, 176, 0.14);
+  --tint-red:     rgba(255, 92, 122, 0.14);
+  --tint-amber:   rgba(255, 181, 71, 0.14);
+  --tint-blue:    rgba(79, 139, 255, 0.09);   /* 0.13 → 0.09: at 0.13 --blue fell to 4.32:1 */
+  --tint-violet:  rgba(167, 139, 250, 0.13);
+  --tint-neutral: rgba(120, 160, 255, 0.08);
+
+  /* ---- INTERACTIVE ACCENT.  --grad is retired from anything a user clicks:
+     its violet end put #04121a at 3.56:1 in light theme on .btn-primary and the
+     DNS blocking toggle.  Dark hover goes LIGHTER, light hover goes DARKER,
+     because the ink flips.
+       --accent-fg on --accent-solid: dark 10.49:1 · light 5.58:1
+       --accent-fg on --accent-hi:    dark 12.57:1 · light 7.72:1 */
+  --accent-solid: #22d3ee;
+  --accent-hi:    #5fe4f7;
+  --accent-fg:    #04121a;
+  /* --grad survives as BRAND only: .logo-mark, .credit-line b,
+     .nav-item.active::before, .glass-head h2::before.  Never on a fill a user
+     reads text off, never on a data mark. */
+  --grad: linear-gradient(120deg, var(--cyan), var(--violet));
+
+  /* ---- ELEVATION.  Two layers per step: a tight contact shadow plus a wide
+     ambient one with NEGATIVE spread, so it sits under the card instead of
+     haloing it.  This is what replaces `box-shadow: 0 0 Npx <accent>` at 26
+     sites.  --shadow-lg stays as an alias so :306 :547 :914 keep working. */
+  /* Border-only elevation. --stroke has ~130 call sites (every internal
+     hairline), so a NEW token is used rather than retuning it. */
+  /* A whisper, not a rule. At 0.26 this was a 1.77:1 HARD border — Grafana's
+     crisp-edge trait — and with --panel-edge:none the card had a visible border
+     and NO shadow. Border plus no shadow IS the flat, boxy look. The shadow
+     carries the card now; the edge only keeps it crisp against the page. */
+  --panel-line: rgba(150,185,255,0.10);
+  /* ONE value, so `none` is legal. NEVER write `var(--shadow-1), var(--hairline)`
+     with both zeroed — `none, none` is invalid after substitution and drops the
+     whole property, which is exactly the six-length bug fixed earlier today. */
+  /* Three layers: a tight contact shadow, a mid lift, and a wide one with
+     NEGATIVE spread so it pools UNDER the card instead of haloing it. */
+  --panel-edge: 0 1px 2px rgba(0,0,0,0.22), 0 4px 12px -2px rgba(0,0,0,0.30), 0 16px 32px -12px rgba(0,0,0,0.42);
+  --panel-edge-hi: 0 1px 2px rgba(0,0,0,0.24), 0 8px 20px -4px rgba(0,0,0,0.36), 0 24px 48px -16px rgba(0,0,0,0.50);
+  --shadow-1: 0 1px 2px rgba(0,0,0,0.40), 0 8px 20px -10px rgba(0,0,0,0.55);
+  --shadow-2: 0 2px 6px rgba(0,0,0,0.42), 0 18px 40px -16px rgba(0,0,0,0.62);
+  --shadow-3: 0 8px 18px rgba(0,0,0,0.45), 0 40px 80px -24px rgba(0,0,0,0.70);
+  --hairline: inset 0 1px 0 rgba(190,215,255,0.07);
+  --shadow-lg: var(--shadow-2);
+
+  /* ---- RADIUS.  Two tiers is the point: 10px on a 36px control beside 18px on
+     a card is the current proportion; one radius everywhere is what makes a
+     dashboard look like 2019.  Replaces 16 hand-picked values. */
+  /* Grafana-scale corners. The token NAMES are unchanged, so all 68 var(--r-*)
+     call sites inherit this without an edit — which is why item 6 had to sweep
+     the literals FIRST, or a 4px panel would contain a 13px child. */
+  /* Reference-scale corners: soft, not sharp. Reverses the Grafana pass, which
+     went 18px -> 4px. The token NAMES are unchanged again, so all 68 var(--r-*)
+     call sites follow without an edit. */
+
+  /* ---- TYPE.  DEFINED, not migrated.  Consumed by items 3/4/5/9 only; the
+     other ~100 declarations are left alone (see cut list).  The three frozen
+     literals are NAMED so nobody folds them into the scale later. */
+
+  /* ---- SPACING.  Semantic, not a bare 4px ladder: --pad-cell must stay odd. */
+  /* Airy rhythm, reversing the 8px Grafana unit. The reference reads as
+     generous; the density that matters stays in the 34px table row, which the
+     reference does not contradict. */
+
+  /* ---- CONTROLS: one height. Today .btn 35.1px / input 35.7px / .btn-icon
+     38.2px are siblings in the same align-items:center row. */
+  /* Explicit row geometry. On a table cell `height` is a MINIMUM, so a 28px
+     button, an 18px pill and a bare string all yield the same row — which is
+     what makes the pitch deterministic instead of font-dependent. */
+
+  /* ---- MOTION ---- */
+
+  /* ---- select chevron: a data URI, so still zero external requests ---- */
+  --chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 4.5 6 8l3.5-3.5' fill='none' stroke='%238090b5' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+
+  /* ---- unchanged ---- */
+  --node-fill: #182236;
+  --node-fill-hub: #101a2e;
+  --mesh-link: rgba(120, 160, 255, 0.20);
+  --surface-hud: rgba(8,11,22,0.5);
+  --nav-active-fg: #fff;
+  --nav-active-bg: rgba(34,211,238,0.14);
+  --overlay: rgba(3,5,12,0.72);
+  /* DELETED: --scan-op (was :47).  See item 2. */
+}
+
+/* ═══════════════════════ LIGHT ═══════════════════════ */
+/* Light is the product default: the bare :root (0,1,0) applies when no
+   attribute is set, and the attribute selector (0,2,0) applies when it is.
+   Specificity decides, so the dark block can stay physically first. */
+:root, :root[data-theme="light"] {
+  /* Page deepened from #eef2f9 so a white card can read as raised: page L* goes
+     95.4 → 93.2 against a 99.6 card, and the now-working shadow does the rest.
+     --text on the new page measures 13.65:1. */
+  --bg: #e7ecf5;
+
+  --panel:               #ffffff;
+  --panel-2:             #f4f8fd;
+  --surface-head:        #eef3fa;   /* --muted 5.21:1 */
+  --surface-input:       #f7f9fd;   /* recessed, mirrors dark; --muted 5.51:1 */
+  --surface-float:       #ffffff;
+  --surface-card-opaque: var(--panel);
+  --panel-solid:         var(--surface-float);
+
+  --stroke: rgba(30, 60, 120, 0.13);
+  --stroke-strong: rgba(30, 60, 120, 0.26);
+  --hover: rgba(30, 60, 120, 0.045);
+  --track: rgba(30, 60, 120, 0.09);
+  --chip:  rgba(30, 60, 120, 0.05);
+  --grid:  rgba(30, 60, 120, 0.10);
+  --row-line: rgba(30, 60, 120, 0.10);
+
+  --text:  #14203a;
+  --muted: #55658a;         /* 5.81:1 on --panel */
+
+  --cyan: #0e9bb8;  --violet: #7c4ddb; --blue: #2563eb;
+  --green: #0d9c74; --red: #dc3355;    --amber: #c07807;
+  --cyan-text: #0a7286; --green-text: #08674d; --red-text: #b31a3c;
+  --amber-text: #8a5300; --violet-text: #6031c4; --blue-text: #1d4ed8;
+
+  /* Derived from the LIGHT accents, not the dark ones.  This block is the actual
+     bug fix: today none of the 54 tints has a light override, so light-theme
+     pills, .sec-icon tiles and .check-grid chips are filled with dark-theme
+     neon under darkened foregrounds.  Measured *-text on each tint over #fff:
+       green 5.91 · red 5.66 · amber 5.41 · blue 5.76 · violet 6.52
+       cyan 4.72 (pre-existing) · neutral(--muted) 5.05 */
+  --cyan-fill:    rgba(14, 155, 184, 0.13);
+  --tint-green:   rgba(13, 156, 116, 0.13);
+  --tint-red:     rgba(220, 51, 85, 0.12);
+  --tint-amber:   rgba(192, 120, 7, 0.14);
+  --tint-blue:    rgba(37, 99, 235, 0.11);
+  --tint-violet:  rgba(124, 77, 219, 0.12);
+  --tint-neutral: rgba(30, 60, 120, 0.08);
+
+  --accent-solid: #0a7286;   /* == --cyan-text */
+  --accent-hi:    #085b6b;   /* DARKER on hover: the ink is white here */
+  --accent-fg:    #ffffff;
+  --grad: linear-gradient(120deg, var(--cyan), var(--violet));
+
+  /* Light DEVIATES from Grafana: --stroke over white measures only 1.06:1
+     against the page and --hairline is already transparent, so border-only
+     would leave the card with a single channel. One contact layer stays. */
+  --panel-line: rgba(30, 60, 120, 0.11);
+  --panel-edge: 0 1px 2px rgba(16,32,64,0.05), 0 4px 12px -2px rgba(16,32,64,0.07), 0 16px 32px -12px rgba(16,32,64,0.11);
+  --panel-edge-hi: 0 1px 2px rgba(16,32,64,0.06), 0 8px 20px -4px rgba(16,32,64,0.10), 0 24px 48px -16px rgba(16,32,64,0.15);
+  --shadow-1: 0 1px 2px rgba(20,40,90,0.07), 0 6px 16px -8px rgba(20,40,90,0.13);
+  --shadow-2: 0 2px 6px rgba(20,40,90,0.09), 0 16px 36px -12px rgba(20,40,90,0.16);
+  --shadow-3: 0 8px 18px rgba(20,40,90,0.10), 0 36px 72px -20px rgba(20,40,90,0.20);
+  --hairline: inset 0 1px 0 transparent;   /* a white highlight on a white card is a no-op */
+  --shadow-lg: var(--shadow-2);
+
+  --chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 4.5 6 8l3.5-3.5' fill='none' stroke='%2355658a' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+
+  --node-fill: #ffffff;
+  --node-fill-hub: #f4f8ff;
+  --mesh-link: rgba(30, 60, 120, 0.24);
+  --surface-hud: rgba(255,255,255,0.72);
+  --nav-active-fg: #0b2a4a;
+  --nav-active-bg: rgba(14,155,184,0.16);
+  --overlay: rgba(20,35,70,0.42);
+  /* DELETED: --scan-op (was :93). */
+}
+
+/* ═══════════════════ RAIL ═══════════════════
+   A bare :root that NO [data-theme] rule overrides, so these resolve identically
+   in both themes by construction — which is the requirement, because the rail is
+   dark either way. Measured on the navy fill (worst case = the lighter top stop):
+     --rail-fg      #ffffff  12.76:1
+     --rail-muted   #9aa9c7   5.40:1   (NOT #8090b5, which is 4.42:1 and fails)
+     --rail-accent  #8ea6ff   5.50:1   (4.64:1 on the active fill)
+   --rail-active-bg is 1.18:1 against the rail ON PURPOSE: the selected state is
+   carried by THREE channels — the 3px accent bar at 5.50:1, the label stepping
+   #9aa9c7 -> #ffffff (2.66x luminance), and the fill — never by the fill alone,
+   so SC 1.4.11 is satisfied without a heavy-handed highlight. */
+:root {
+  --rail-bg:        #1e2b45;
+  --rail-bg-2:      #223251;
+  --rail-fg:        #ffffff;
+  --rail-muted:     #9aa9c7;
+  --rail-active-bg: #2c3d60;
+  --rail-accent:    #8ea6ff;
+  --rail-line:      rgba(148,178,230,0.18);
+  --rail-hover:     rgba(148,178,230,0.08);
+  /* Declared HERE, not in a theme block: it was left in the dark block only, so
+     in light theme var(--surface-side) was undeclared, the background shorthand
+     was invalid, and the rail fell back to no fill at all. */
+  --surface-side:   linear-gradient(180deg, var(--rail-bg-2), var(--rail-bg));
+}
+/* ═══ STRUCTURE — theme-independent ═══
+   These were inside the dark block. The theme flip made that block
+   attribute-scoped, so in LIGHT theme every one of them became undeclared:
+   cards computed border-radius 0 and padding 0, and the table row collapsed
+   from 34px to 27px. Geometry is not a colour and does not belong in a
+   theme block. */
+:root {
+  --r-xs:   6px;
+  --r-sm:   8px;
+  --r-md:  12px;    /* everything INSIDE a card: controls, rows, nested panels, chips */
+  --r-xl:  16px;    /* TOP-LEVEL CARDS */
+  --r-pill: 999px;  /* capsules                                  ← 20, 24 */
+  --radius: var(--r-xl);   /* the 9 existing var(--radius) sites go 16 → 18px free */
+  /* The bottom four stay a 1px ladder ON PURPOSE: a 1.2 ratio would put the step
+     above 13px at 15.6px and turn every caption into a sub-title. Below 13px the
+     levels are carried by CASE + TRACKING + WEIGHT + COLOUR instead. The ramp is
+     modular only where size can actually do the work.
+     steps: 13->15 1.15 - 15->18 1.20 - 18->22 1.22 - 22->28 1.27 - 28->34 1.21 */
+  --fs-100: 10px;   /* micro-label / eyebrow (UPPERCASE only), kbd, chart axis */
+  --fs-200: 11px;   /* meta, timestamp, mono sub-line, .btn-sm                 */
+  --fs-300: 12px;   /* dense secondary                                        */
+  --fs-400: 13px;   /* BODY, control, .btn, input                             */
+  --fs-500: 15px;   /* sub-title, NESTED card title           was 14px        */
+  --fs-600: 18px;   /* CARD TITLE, modal title                was 16px        */
+  --fs-700: 22px;   /* PAGE TITLE                             was 18px        */
+  --fs-800: 28px;   /* metric value                           was 20px        */
+  --fs-900: 34px;   /* hero metric                            was 26px        */
+
+  /* Three weights plus the 400 default — the largest set this stack can
+     actually RENDER. --font falls back to system-ui = Segoe UI on Windows,
+     whose family exposes only 300/350/400/600/700/900, so per CSS Fonts 4
+     every value in 501..700 renders 700 and 701..900 renders 900. The six
+     values previously in use (500/600/650/700/750/800) collapsed to four
+     rendered weights, in the wrong places. */
+  --fw-normal: 400;
+  --fw-medium: 500;
+  --fw-semi:   600;
+  --fw-bold:   700;
+  --fs-table:     12.5px;   /* .dt  — FROZEN: #domainsTable is table-layout:fixed */
+  --fs-th:        10.5px;   /* .dt th — FROZEN: fixed px column widths + 2 @container breakpoints */
+  --fs-stat:       var(--fs-800);   /* 28px */
+  --fs-stat-dense: var(--fs-700);   /* 22px — the 6-up tier at >=1500px */
+  /* SPACING SCALE - base 4. 4 divides every free control dimension already in
+     the file (36, 28, 12, 64, 232, 48, 96, 44). --row-h 34, --row-h-th 30 and
+     --pad-card 18px are FROZEN box dimensions, not gaps, so they never meet the
+     scale; all three sit on the 2px sub-grid where the half-step lives.
+     Replaces --gap-tight / --gap-card / --gap-page and 99 literals.
+     There is deliberately NO 24px step: no gap in the app exceeds 20px. */
+  --sp-05:  2px;   /* stacked text lines inside ONE label block; nothing else */
+  --sp-1:   4px;   /* micro: icon-button clusters, vertical label stacks      */
+  --sp-2:   8px;   /* DEFAULT intra-component: icon<->label, control<->control */
+  --sp-3:  12px;   /* component <-> component inside a card                   */
+  --sp-4:  16px;   /* block <-> block inside a card; .hud column-gap          */
+  --sp-5:  20px;   /* page rhythm: top-level grid gutter + card margin-bottom */
+  --dot:    9px;   /* free-standing state lamp; 50% stays a literal           */
+  --pad-card-y:  18px;
+  --pad-card-x:  20px;
+  --pad-card:    var(--pad-card-y) var(--pad-card-x);   /* .glass .stat-tile .infra-card */
+  --pad-page:    20px 22px;   /* `main` */
+  --ctl-h-lg: 40px;   /* nav row, engine capsule */
+  --ctl-h:    36px;   /* every standard control  */
+  --ctl-h-sm: 28px;   /* dense: in-table, segmented, floating bar */
+  --row-h:     34px;
+  --row-h-th:  30px;
+  --pad-cell-x: 12px;
+  --dur-1: 120ms;   /* state echo on a control */
+  --ease-out:  cubic-bezier(0.22, 1, 0.36, 1);
+  --font: 'Inter', system-ui, sans-serif;
+  --mono: 'JetBrains Mono', ui-monospace, monospace;
+}
+
+
+
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  font-family: var(--font);
+  color: var(--text);
+  font-size: 14px;
+  /* Flat canvas. The three radial glows only ever showed in the gaps between
+     cards, and once the surfaces went opaque they stopped reading as atmosphere
+     and started reading as an uneven background. */
+  background: var(--bg);
+  overflow: hidden;
+  transition: background-color 0.25s, color 0.25s;
+}
+.mono { font-family: var(--mono); }
+.dim { color: var(--muted); }
+
+/* The HTML `hidden` attribute only hides via the UA stylesheet's
+   `[hidden]{display:none}`, and ANY author `display` declaration outranks the
+   UA origin. So a component styled `display:flex/grid` stays fully visible
+   while `el.hidden = true` — which is how the pattern builder rendered even
+   with Exact match selected. Enforce it once, globally, for every component. */
+[hidden] { display: none !important; }
+
+/* .scanlines deleted. It was a position:fixed, full-viewport, z-index:9999,
+   mix-blend-mode:overlay element, which forces the root stacking context to
+   re-blend whenever anything beneath it repaints — the 15s auto-refresh, every
+   canvas draw, every frame of the force-directed mesh layout. Its own comment
+   claimed "faint moving" but no animation was ever attached: a static 1-in-3px
+   stripe at 2% white through an overlay blend is under 1% luminance shift.
+   Light theme already shipped it at opacity 0 and read fine, which is the proof
+   it was not doing anything. */
+
+.app {
+  display: grid;
+  grid-template-columns: 232px 1fr;
+  /* minmax(0,1fr) pins the single row to exactly 100vh AND lets its items
+     shrink below their content. An implicit `auto` row would instead grow to
+     fit, pushing the bottom of the page below the viewport where the
+     overflow:hidden on <body> clips it out of reach. */
+  grid-template-rows: minmax(0, 1fr);
+  height: 100vh; overflow: hidden;
+}
+
+/* ===================== Sidebar ===================== */
+/* Custom properties INHERIT, so re-pointing the SEMANTIC names here reaches
+   .nav-item, :hover, .active, the nav scrollbar thumb, .sidebar-foot, .conn,
+   .conn-dot, .ver, .credit* and .logo-text with ZERO new selectors and no
+   !important. Because the re-point is LOCAL, --nav-active-bg keeps its :root
+   value for the command palette's selected row, which is not in the rail — a
+   parallel --rail-* family applied at :root would have painted that row navy and
+   put --text on it at 1.15:1. */
+.sidebar {
+  --text:          var(--rail-fg);
+  --muted:         var(--rail-muted);
+  --stroke:        var(--rail-line);
+  --stroke-strong: var(--rail-line);
+  --hover:         var(--rail-hover);
+  --nav-active-fg: var(--rail-fg);
+  --nav-active-bg: var(--rail-active-bg);
+  --mesh-link:     var(--rail-line);
+  /* Pin the accents to their DARK values: light --red on navy is 2.83:1 and
+     fails 3:1 as the .conn.bad dot, and --grad's light violet stop is 2.65:1.
+     This removes the theme dependency from inside the rail entirely. */
+  --cyan:  #22d3ee;  --violet: #a78bfa;  --blue:  #4f8bff;
+  --green: #34e5b0;  --red:    #ff5c7a;  --amber: #ffb547;
+
+  background: var(--surface-side);
+  border-right: 1px solid var(--rail-line);
+  display: flex; flex-direction: column; padding: 18px 12px 14px;
+  /* so anything added later that forgets to pick a colour lands on 5.40:1 */
+  color: var(--rail-muted);
+}
+/* Flatten the three gradient-through-text marks inside the rail. Undoing
+   background-clip:text needs background AND both clip properties AND color reset
+   — resetting only the background leaves color:transparent and an invisible
+   mark. Scoped to .sidebar because .logo-mark and .credit-line are shared with
+   login.html. */
+.sidebar .logo-mark,
+.sidebar .logo-text span,
+.sidebar .credit-line b {
+  background: none; -webkit-background-clip: border-box; background-clip: border-box;
+  -webkit-text-fill-color: currentColor;
+  filter: none;
+}
+.sidebar .logo-mark { color: var(--rail-accent); animation: none; }
+.sidebar .logo-text b { color: var(--rail-fg); }
+.sidebar .logo-text span { color: var(--rail-muted); }
+.sidebar .credit-line b { color: var(--rail-fg); }
+.logo { display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-1) var(--sp-2) var(--sp-5); }
+.logo-mark {
+  font-size: 26px; background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+/* @keyframes spin deleted: a forever-spinning logo mark draws the eye and carries no information. */
+.logo-text { display: flex; flex-direction: column; line-height: 1.05; }
+.logo-text b { font-size: 15px; letter-spacing: 3px; }
+.logo-text span { font-size: 9px; letter-spacing: 4px; color: var(--cyan); }
+
+/* min-height:0 is what makes flex:1 able to SHRINK. Without it the nav grows to
+   its content, so at 18 items on a short viewport the last items were pushed past
+   the sidebar's bottom edge and clipped by the shell's overflow:hidden — the same
+   class of bug as the app-shell one, one level down. overflow-y lets it scroll
+   instead. overscroll-behavior stops the scroll chaining into <main>. */
+.nav {
+  display: flex; flex-direction: column; gap: var(--sp-05);
+  flex: 1 1 auto; min-height: 0;
+  overflow-y: auto; overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+.nav::-webkit-scrollbar { width: 6px; }
+.nav::-webkit-scrollbar-thumb { background: var(--mesh-link); border-radius: var(--r-xs); }
+.sidebar-foot { flex: 0 0 auto; }
+.nav-item {
+  display: flex; align-items: center; gap: var(--sp-3);
+  /* flex:none is LOAD-BEARING. .nav is a flex COLUMN, so a child with an explicit
+     height still has flex-shrink:1 and would COMPRESS to fit rather than let the
+     container scroll — 18 rows in a short nav would resolve to ~34px each and
+     silently re-create the clipping bug the .nav overflow fix just closed. */
+  height: var(--ctl-h-lg); flex: none;
+  padding: 0 12px;
+  background: none; border: none; cursor: pointer;
+  color: var(--muted);
+  border-radius: var(--r-md);
+  font-size: 14px; font-weight: 500; letter-spacing: 0.01em; font-family: inherit;
+  position: relative; text-align: left;
+  transition: color var(--dur-1) var(--ease-out), background-color var(--dur-1) var(--ease-out);
+}
+.nav-item svg { width: 20px; height: 20px; fill: currentColor; flex-shrink: 0; }
+/* Without this, "Routers & APs" pushes the row's content box wider than the rail
+   instead of ellipsising. */
+.nav-item span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nav-item:hover { color: var(--text); background: var(--hover); }
+/* The old gradient's right half measured 1.00:1 — half the row had no fill. */
+.nav-item.active { color: var(--nav-active-fg); background: var(--nav-active-bg); }
+/* Absolute px insets, not %, so the bar is the same length on the 40px row and on
+   the collapsed 62px-rail row. Rounded on the RIGHT only: it butts the left edge. */
+.nav-item.active::before {
+  content: ''; position: absolute; left: 0; top: 8px; bottom: 8px; width: 3px;
+  border-radius: 0 var(--r-xs) var(--r-xs) 0;
+  background: var(--rail-accent); box-shadow: none;
+}
+/* (0,3,0) and it MUST be scoped: the global .nav-item:focus-visible is also
+   (0,2,0) and sits ~1300 lines later, so an unscoped rule loses on source order
+   and the ring overflows the rail at outline-offset 2px. */
+.sidebar .nav-item:focus-visible { outline: 2px solid var(--rail-accent); outline-offset: -2px; }
+
+.sidebar-foot { border-top: 1px solid var(--stroke); padding-top: 14px; }
+.conn { display: flex; align-items: center; gap: var(--sp-2); font-size: 12px; color: var(--muted); }
+.conn-dot { width: var(--dot); height: var(--dot); border-radius: 50%; background: var(--muted); }
+.conn.ok .conn-dot { background: var(--green); }
+.conn.bad .conn-dot { background: var(--red); }
+.ver { font-size: 10.5px; color: var(--muted); margin-top: 6px; font-family: var(--mono); }
+
+/* ===================== Attribution ===================== */
+.credit { display: flex; flex-direction: column; gap: var(--sp-05); margin-top: var(--sp-3);
+  padding-top: 10px; border-top: 1px solid var(--stroke); }
+.credit-line { font-size: 10.5px; color: var(--muted); letter-spacing: 0.2px; }
+.credit-line b {
+  font-weight: 700; letter-spacing: 0.4px;
+  background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.credit-copy { font-size: 9.5px; color: var(--muted); line-height: 1.4; }
+.login-credit { margin-top: 18px; padding-top: 0; border-top: 0; align-items: center; text-align: center; }
+
+/* An `@media (prefers-reduced-motion: reduce)` wrapper was deleted around this
+   rule in an earlier pass, taking its closing brace with it — the duplicated
+   section comment either side and the orphaned two-space indent were the
+   fingerprint. The rule had become UNCONDITIONAL, so the header engine dot wore
+   a permanent 3px green halo on every one of the 19 sections, AND still pulsed,
+   because .status-ring.on sets background + animation rather than box-shadow so
+   both applied. The reduced-motion block lives on its own further down and does
+   not contain this rule. */
+/* ===================== Content / HUD ===================== */
+/* min-height:0 is essential: as a grid item this defaults to `auto`, so it
+   refused to shrink below its content and overflowed the 100vh row — pushing
+   the bottom of the page under the viewport where overflow:hidden clipped it. */
+.content { display: flex; flex-direction: column; overflow: hidden; min-height: 0; min-width: 0; }
+
+/* The header is a FIXED-HEIGHT four-zone grid row:
+     [context] [engine] [command ......] [session]
+   `flex: 0 0 auto` plus `min-height` (never `height`) pins it. `box-sizing:
+   border-box` is global, so the 1px border-bottom is INSIDE the 64px — the
+   number is the number. Every child declares its own height and the tallest is
+   .hud-engine at 40px, so no string and no state can push the row taller.
+   Do not add a child taller than 40px here. */
+.hud {
+  flex: 0 0 auto;
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: var(--sp-4);
+  min-height: 64px;
+  padding: 0 22px;
+  position: relative;
+  border-bottom: 1px solid var(--stroke);
+  background-color: var(--surface-hud);
+  background-image:
+    linear-gradient(180deg, color-mix(in srgb, var(--cyan) 5%, transparent), transparent 70%),
+    radial-gradient(130% 300% at 52% 128%, color-mix(in srgb, var(--violet) 7%, transparent), transparent 62%);
+  backdrop-filter: blur(14px);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--stroke-strong) 55%, transparent);
+}
+.hud > * { min-width: 0; }
+/* No overflow:hidden on .hud — it would clip the focus rings of the five
+   controls inside it, and it would hide a future regression instead of showing
+   it. Clipping is delegated to the text nodes, which are nowrap + ellipsis. */
+
+/* ---- liveness: the poll rail --------------------------------------------
+   Two channels, both ON the bottom border, so they cost ZERO height:
+     [data-engine]  a 2px tint carrying the engine state
+     [data-poll]    a one-shot left-to-right sweep, fired by hudPoll() the
+                    moment loadBlocking() RESOLVES, amber when it rejects.
+   loadBlocking runs every 15s from every section, so this is driven by data
+   arriving — never by a free-running timer. An indicator that cannot indicate
+   failure has no business in an ops tool. */
+.hud::after {
+  content: ''; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px;
+  background: var(--stroke-strong); pointer-events: none;
+}
+.hud[data-engine="on"]::after   { background: color-mix(in srgb, var(--green) 42%, transparent); }
+.hud[data-engine="off"]::after  { background: color-mix(in srgb, var(--red) 42%, transparent); }
+.hud[data-engine="down"]::after { background: color-mix(in srgb, var(--amber) 50%, transparent); }
+/* An absolutely positioned pseudo-element is out of flow, so unlike a real
+   <span> it can never be auto-placed into an implicit third grid row. */
+.hud::before {
+  content: ''; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px;
+  pointer-events: none; opacity: 0;
+  background: linear-gradient(90deg, transparent, var(--cyan) 45%, var(--violet) 60%, transparent);
+}
+.hud[data-poll="ok"]::before { animation: hudSweep 900ms cubic-bezier(.3,.1,.3,1); }
+@keyframes hudSweep {
+  0%   { opacity: 0; clip-path: inset(0 100% 0 0); }
+  15%  { opacity: 1; }
+  85%  { opacity: 1; }
+  100% { opacity: 0; clip-path: inset(0 0 0 0); }
+}
+
+/* ---- zone 1: context ---------------------------------------------------- */
+.hud-context { display: flex; align-items: center; gap: var(--sp-3); min-width: 0; }
+/* the same 2px gradient rail as .nav-item.active::before, so the header and the
+   selected sidebar row read as one continuous marker */
+.hud-mark {
+  flex: none; width: 3px; height: 24px; border-radius: var(--r-xs);
+  background: var(--grad);
+}
+/* flex: 1 1 0 (not `auto`) is load-bearing: with a zero base size the title can
+   never force .hud-context to wrap or push a sibling. */
+.hud-titles { flex: 1 1 0; display: flex; flex-direction: column; justify-content: center; min-width: 0; }
+/* THE ENTRY POINT. Every title in <main> was 14px — byte-identical to `body`
+   and `.nav-item` — so a reader landing in a section had nothing to read first. */
+.hud-titles h1 {
+  margin: 0; font-size: var(--fs-700); font-weight: var(--fw-bold);
+  letter-spacing: -0.02em; line-height: 1.1;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+/* --cyan measures 3.04:1 on the light HUD surface and fails AA — that is a live
+   bug in today's `.hud-title .host`. --cyan-text is its text-only sibling:
+   measured 11.00:1 dark, 5.40:1 light. */
+.hud-host {
+  font-size: 10.5px; line-height: 1.35; letter-spacing: 0.4px; color: var(--cyan-text);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+/* initHost() writes '' when the host is unknown. `:empty` is not `[hidden]`, so
+   the global [hidden]{display:none!important} still outranks this. */
+.hud-host:empty { display: none; }
+/* NESTED inside the context zone, not a fifth grid child: as a sibling it was a
+   150px track that only exists on multi-instance installs and it squeezed the
+   command field on every width. Declares no `display`, so `sel.hidden = true`
+   in loadPiholeFleet() still works through the global rule. */
+.hud .ph-switch {
+  flex: 0 1 auto; height: var(--ctl-h-sm); max-width: 150px; padding: 0 9px;
+  font-size: 12px; border-radius: var(--r-md);
+  background: var(--chip); border: 1px solid var(--stroke); color: var(--text);
+}
+.hud .ph-switch:focus-visible { border-color: var(--cyan); }
+
+/* ---- zone 2: engine (blocking state + its control) ----------------------
+   The ONLY child in the bar with its own surface, border, state colour and
+   accent rail, because it is the only control that changes network behaviour.
+   Hierarchy through selective surfacing, not through spacing. The idiom is the
+   app's own: .builder's border-left, .auto-card's state-coloured bar,
+   .infra-card's border-top. */
+.hud-engine {
+  display: flex; align-items: center; gap: var(--sp-2); height: var(--ctl-h-lg); flex: none;
+  padding: 0 5px 0 11px; position: relative;
+  background: var(--chip); border: 1px solid var(--stroke); border-radius: var(--r-md);
+  border-left: 3px solid var(--stroke-strong);
+}
+/* State lives on ONE attribute on ONE element (#hud), never on #statusDot or
+   #toggleBtn, whose className renderBlocking() reassigns wholesale on every 15s
+   poll. 6% is a ceiling, not a taste call: at 8% --muted on the tint drops below
+   4.5:1 and #blockingSub fails AA. Measured at 6%: 5.17–5.18:1 on all three
+   tints in both themes. The neutral var(--chip) declared first is the
+   color-mix() fallback. */
+.hud[data-engine="on"] .hud-engine {
+  background-image: linear-gradient(90deg, color-mix(in srgb, var(--green) 6%, transparent), transparent 78%);
+  border-color: color-mix(in srgb, var(--green) 34%, transparent);
+}
+.hud[data-engine="on"] .hud-engine { border-left-color: var(--green); }
+.hud[data-engine="off"] .hud-engine {
+  background-image: linear-gradient(90deg, color-mix(in srgb, var(--red) 6%, transparent), transparent 78%);
+  border-color: color-mix(in srgb, var(--red) 34%, transparent);
+}
+.hud[data-engine="off"] .hud-engine { border-left-color: var(--red); }
+.hud[data-engine="down"] .hud-engine {
+  background-image: linear-gradient(90deg, color-mix(in srgb, var(--amber) 6%, transparent), transparent 78%);
+  border-color: color-mix(in srgb, var(--amber) 30%, transparent);
+}
+.hud[data-engine="down"] .hud-engine { border-left-color: var(--amber); }
+
+/* app.js reassigns #statusDot.className, so these three names are fixed. */
+.status-ring { width: var(--dot); height: var(--dot); border-radius: 50%; background: var(--muted); flex: none; }
+.status-ring.on { background: var(--green); animation: pulse-g 2.6s ease-out infinite; }
+.status-ring.off { background: var(--red); }
+/* was rgba(52,229,176,…) — a hardcoded DARK green, so the halo was the wrong
+   colour in light theme. 2.6s matches .auto-lamp's autoPulse and #meshSvg
+   .pulse-ring's meshpulse, the app's two newest live indicators, so nothing in
+   the UI beats out of step. */
+@keyframes pulse-g {
+  0%   { box-shadow: 0 0 0 0 color-mix(in srgb, var(--green) 55%, transparent); }
+  70%  { box-shadow: 0 0 0 8px transparent; }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+
+/* FIXED width — this is the whole no-reflow guarantee. #blockingSub is rewritten
+   by BOTH renderBlocking and the 1s tickClock, so without a fixed box the
+   countdown would resize the bar once a second. 96px is sized against the widest
+   string in the widest FALLBACK face: "resumes 900s" at 10px Courier New is
+   72px, "Instance unreachable" would have been 120px — which is why app.js
+   delta 6 shortens both strings. Verified subClip === false at every width. */
+.hud-eng-text {
+  display: flex; flex-direction: column; justify-content: center;
+  width: 96px; flex: none; line-height: 1.2;
+}
+.hud-eng-text b {
+  font-size: 12.5px; font-weight: 700; letter-spacing: 0.1px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+/* --dim measures 3.10:1 on the HUD surface and fails AA under 18.66px — today's
+   `.pulse-text span` uses it at 10px. And NOT text-transform: uppercase, which
+   today's rule sets: this line carries "resumes 900s", and "RESUMES 900S" is
+   both wider than the box and wrong. --mono + letter-spacing carries the
+   technical register instead. */
+.hud-eng-text span {
+  font-size: 10px; color: var(--muted); font-family: var(--mono);
+  letter-spacing: 0.3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+/* Every toggle rule is parent-scoped, because renderBlocking() reassigns
+   b.className = 'btn btn-toggle on|off' and would drop any class added here.
+   `.hud-engine .btn-toggle` is (0,3,0) and beats `.btn-toggle.on` (0,2,0), so it
+   wins regardless of source order. */
+.hud-engine .btn-toggle {
+  height: var(--ctl-h-sm); min-width: 76px; margin-left: auto; padding: 0 13px;
+  border-radius: var(--r-md); font-size: 12px; font-weight: 700; letter-spacing: 0.2px;
+  background: var(--chip); color: var(--text); border: 1px solid var(--stroke-strong);
+}
+/* .on = "Enable", the restorative action offered while protection is down. The
+   existing .btn-toggle.on paints #04121a on the light theme's cyan→violet
+   gradient, ~3.2:1, which fails AA. Tint + the *-text token instead. The tints
+   are 8%/6% and not 16%/14% because the button sits INSIDE a 6%-tinted capsule
+   and the two stack: measured at 16% the light theme read 4.34:1 and FAILED.
+   At 8%/6%: 11.54:1 dark / 5.12:1 light (.on), 6.26 / 5.23 (.off). */
+.hud-engine .btn-toggle.on {
+  background: color-mix(in srgb, var(--green) 8%, transparent);
+  border-color: color-mix(in srgb, var(--green) 46%, transparent);
+  color: var(--green-text);
+}
+.hud-engine .btn-toggle.on:hover {
+  border-color: var(--green);
+}
+.hud-engine .btn-toggle.off {
+  background: color-mix(in srgb, var(--red) 6%, transparent);
+  border-color: color-mix(in srgb, var(--red) 42%, transparent);
+  color: var(--red-text);
+}
+.hud-engine .btn-toggle.off:hover {
+  border-color: var(--red);
+}
+/* .btn:disabled fades to 45% opacity, dragging the label under 3:1. WCAG 1.4.3
+   exempts inactive controls, but this one is on screen for the first second of
+   every visit, so give it a designed state instead of a fade. --panel-solid
+   (not --chip) so --muted clears AA over all three capsule tints: 5.26:1 dark,
+   5.81:1 light. Reads as an inset well, which is what a dead control should. */
+.hud .btn:disabled {
+  opacity: 1; color: var(--muted); background: var(--panel-solid);
+  border-color: var(--stroke); box-shadow: none; transform: none;
+}
+
+/* ---- zone 3: command bar ------------------------------------------------
+   The palette has been on Ctrl/Cmd-K since it was built with no visible
+   affordance, and on a phone there is no Ctrl key — so this button is the only
+   path to it there. A button, not an input: clicking it opens the palette's real
+   combobox, and a decoy input that hands focus to another input reads as a bug
+   to a screen reader. It carries NO `.btn` class, because `.btn` is (0,1,0) and
+   ~50 lines later in the file, so it would win every shared property (radius,
+   padding, colour) — the exact collision that shipped a 10px-radius command bar
+   among 11px siblings in one of the losing candidates. Scoped anyway. */
+.hud .hud-cmd {
+  display: flex; align-items: center; gap: var(--sp-2);
+  width: 100%; max-width: 560px; margin-inline: auto;
+  height: var(--ctl-h); padding: 0 8px 0 12px;
+  background: var(--surface-input);
+  /* --stroke-strong, NOT --stroke: at 0.13/0.14 alpha the boundary between
+     --surface-input and --surface-hud measures ~1.1:1 and the hero control is
+     effectively invisible, failing SC 1.4.11. .cp and .builder — the two
+     surfaces this button opens — both use --stroke-strong. */
+  border: 1px solid var(--stroke-strong); border-radius: var(--r-md);
+  color: var(--muted); font-family: inherit; font-size: 13px; font-weight: 500;
+  text-align: left; cursor: pointer;
+  transition: border-color 0.16s, box-shadow 0.16s, color 0.16s;
+}
+/* the same focus language as input:focus elsewhere in this file */
+.hud .hud-cmd:hover {
+  color: var(--text); border-color: var(--cyan);
+  box-shadow: 0 0 0 3px var(--cyan-fill);
+}
+/* `:focus-visible` (now at style.css:1207) is (0,1,0) and sets
+   `border-radius: 6px`, which would visibly snap this control's corners 11px→6px
+   on Tab; `.btn:focus-visible` at 1208 does not cover it because .hud-cmd is not
+   a .btn. (0,3,0) beats both — verified by walking the live CSSOM. */
+.hud .hud-cmd:focus-visible { border-color: var(--cyan); border-radius: var(--r-md); }
+.hud-cmd-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hud-cmd-keys { display: flex; gap: var(--sp-1); flex: none; }
+.hud-cmd-keys kbd { font-size: 9.5px; padding: 2px 5px; }   /* inherits the palette's kbd */
+
+/* ---- zone 4: session --------------------------------------------------- */
+.hud-session { display: flex; align-items: center; gap: var(--sp-3); }
+
+/* Telemetry chip. The clock already ticked once a second; it just never looked
+   like data. tabular-nums stops the width jitter, and min-width in `ch` is
+   font-relative so it is correct under any fallback face. */
+/* The two capsules that wrap a small control. The calc lives on the ELEMENT, not
+   in a token: var() inside a custom property is substituted where it is DECLARED,
+   so a :root token could never see the .hud-scoped --ctl-h-sm at <=940px. */
+.hud-meta, .hud-rail { height: calc(var(--ctl-h-sm) + 2px); }
+.hud-meta {
+  display: flex; align-items: center; gap: var(--sp-2); flex: none; padding: 0 11px;
+  background: var(--chip); border: 1px solid var(--stroke); border-radius: var(--r-md);
+}
+/* Driven by hudPoll(), never by a keyframe loop: --muted before the first poll,
+   cyan with one 900ms flash per resolved poll, amber and static when the last
+   poll FAILED. That last state is the whole point — it is why this is a poll
+   lamp and not decoration. */
+.hud-sync {
+  width: 6px; height: 6px; border-radius: 50%; flex: none;
+  background: var(--muted); transition: background-color 0.2s, box-shadow 0.2s;
+}
+.hud[data-poll="ok"] .hud-sync {
+  background: var(--cyan);
+  animation: hudBlip 900ms ease-out;
+}
+.hud[data-poll="fail"] .hud-sync { background: var(--amber); }
+@keyframes hudBlip { 0% { transform: scale(2); } 100% { transform: scale(1); } }
+.clock {
+  font-family: var(--mono); font-size: 12.5px; font-weight: 600; line-height: 1;
+  color: var(--text); letter-spacing: 0.6px; font-variant-numeric: tabular-nums;
+  min-width: 8ch;
+}
+
+/* One segmented group, so refresh / theme / sign out read as a single
+   low-frequency cluster rather than three peers of the blocking toggle. */
+.hud-rail {
+  display: flex; align-items: center; flex: none;
+  background: var(--chip); border: 1px solid var(--stroke); border-radius: var(--r-md);
+}
+/* (0,2,0), so it beats `.btn-icon` (0,1,0) and `.btn` (0,1,0), both later in the
+   file. DELIBERATELY SCOPED: `.btn-icon` is also worn by #meshZoomIn and
+   #meshZoomOut, and `.mesh-tools .btn-icon` resets only padding/font-size — so
+   an unscoped width/height here would turn the Network Map zoom controls into
+   34px squares inside a `max-width: 46%` floating toolbar. Verified: a
+   `.btn.btn-icon` outside .hud still computes `padding: 9px 12px`, 15px. */
+.hud-rail .btn {
+  --btn-h: var(--ctl-h-sm); padding: 0; display: grid; place-items: center;
+  background: transparent; border: 0; border-radius: var(--r-md); color: var(--muted); box-shadow: none;
+}
+.hud-rail .btn:hover { color: var(--text); background: var(--hover); box-shadow: none; }
+/* The global outline-offset: 2px would tuck the ring under the neighbouring
+   button and the group border; -1px keeps a full 2px cyan ring visible inside
+   the segment. (0,3,0), so it beats both :focus-visible and .btn:focus-visible. */
+.hud-rail .btn:focus-visible { position: relative; z-index: 1; outline-offset: -1px; }
+.hud-rail #logoutBtn:hover {
+  color: var(--red-text); background: color-mix(in srgb, var(--red) 10%, transparent);
+}
+/* a real element, not a ::before or an inset shadow: the :hover box-shadow reset
+   above would wipe a shadow, and a pseudo would land as a flex item anyway. */
+.hud-div { width: 1px; height: 16px; flex: none; background: var(--stroke); }
+/* On the ICON, not the button — spinning the button spins its focus ring with
+   it, so a keyboard-activated refresh rotated its own 2px cyan outline. */
+.hud .is-busy .hud-ico { animation: hudSpin 700ms linear infinite; }
+@keyframes hudSpin { to { transform: rotate(360deg); } }
+/* replays on every paintHudIcons() swap in applyTheme(): one overshoot bounce
+   that reads as a mechanical switch throw. */
+.hud #themeBtn .hud-ico { animation: hudPop 220ms cubic-bezier(.34,1.3,.64,1); }
+@keyframes hudPop {
+  from { opacity: 0; transform: rotate(-40deg) scale(.7); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* iconHtml() stamps .dev-ico, which carries color: var(--muted),
+   margin-right: 5px, opacity: .85 AND vertical-align: -2px — all FOUR have to go
+   for a centred icon-only button, exactly as .btn-icon-sm and .tpl b do it.
+   (The brief says .dev-ico forces --cyan; the base rule is --muted, and
+   `.dt td .dev-ico` is the --cyan override. Both are neutralised by `inherit`.) */
+.hud .dev-ico { color: inherit; margin: 0; opacity: 1; vertical-align: baseline; display: block; }
+.hud-ico { display: inline-flex; flex: none; }
+.hud-rail .dev-ico { width: 16px; height: 16px; }
+.hud-cmd .dev-ico { width: 15px; height: 15px; }
+/* A 1px lift reads as jitter in a dense fixed-height bar, and the hardcoded
+   cyan glow on .btn:hover is one of the file's existing hardcoded colours.
+   Declared unconditionally: `transform` is neither animation nor transition, so
+   the prefers-reduced-motion block could not have reached it. */
+.hud .btn:hover { transform: none; box-shadow: none; }
+
+/* loadMe() reassigns #whoRole.className, so the pill rule is parent-scoped. */
+.hud-id {
+  display: flex; align-items: center; gap: var(--sp-2); height: 36px; flex: none; min-width: 0;
+  padding-left: 13px; border-left: 1px solid var(--stroke);
+}
+.hud-avatar {
+  width: 26px; height: 26px; border-radius: var(--r-md); flex: none; display: grid; place-items: center;
+  font-size: 11.5px; font-weight: 700; letter-spacing: 0.3px;
+  color: var(--cyan-text); background: var(--cyan-fill);
+  border: 1px solid color-mix(in srgb, var(--cyan) 32%, transparent);
+}
+.hud-id-text { display: flex; flex-direction: column; gap: var(--sp-05); min-width: 0; line-height: 1.15; }
+/* (0,2,0), so it wins over `.who-name` (0,1,0) at style.css:810 even if D2 is
+   missed — the one deletion every candidate's list forgot. */
+.hud-id .who-name {
+  font-size: 12px; font-weight: 650; color: var(--text); max-width: 110px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.hud-id .pill {
+  align-self: flex-start; padding: 1px 6px;
+}
+
+/* ---- narrow tiers ------------------------------------------------------
+   Every breakpoint below was MEASURED, not chosen: each sits at the exact pixel
+   where the element above it starts to ellipsise, and each drops the element
+   whose absence keeps the next-most-important one intact. Nothing focusable is
+   ever display:none — everything hidden here is a text or decoration node. */
+@media (max-width: 1320px) {
+  /* the clock chip goes first: ambient, and it holds no focusable child. */
+  .hud-meta { display: none; }
+}
+@media (max-width: 1200px) {
+  /* keycaps before the placeholder: with them gone the full "Search or run a
+     command" survives to 1151px instead of ellipsising at 1161px. */
+  .hud-cmd-keys { display: none; }
+}
+@media (max-width: 1150px) {
+  /* measured squeeze point: at 1151 the placeholder still fits exactly. */
+  .hud-titles h1 { font-size: var(--fs-600); }
+  .hud .hud-cmd { width: auto; max-width: none; padding: 0 10px; }
+  .hud-cmd-text { display: none; }
+  .hud-id-text { display: none; }   /* #whoAvatar's role=img label carries it */
+  .hud-id { padding-left: 11px; }
+}
+@media (max-width: 940px) {
+  /* ONE row, 56px. Today's header measures 71px here and wraps to 122px at 390.
+     No `flex-wrap` anywhere: it is inert on a grid, and it is what let the old
+     header grow a second row out of every table's height. */
+  .hud { --ctl-h-lg: 34px; --ctl-h: 30px; --ctl-h-sm: 26px; min-height: 56px; padding: 0 var(--sp-3); column-gap: var(--sp-2); }
+  .hud-mark { height: 20px; }
+  .hud-titles h1 { font-size: var(--fs-500); }
+  .hud-engine { padding: 0 var(--sp-1) 0 var(--sp-2); }
+  .hud-eng-text { width: 88px; }
+  .hud-engine .btn-toggle { min-width: 70px; padding: 0 11px; }
+  .hud-id { height: 32px; }
+  .hud-avatar { width: 24px; height: 24px; border-radius: var(--r-sm); }
+  .hud .ph-switch { max-width: 112px; font-size: 11.5px; }
+}
+@media (max-width: 620px) {
+  /* Exactly two rows. All four children carry an explicit grid-area, so
+     grid-auto-flow has nothing left to place and an implicit third row is
+     structurally impossible — not merely unlikely. The liveness rails are
+     absolutely positioned pseudo-elements, so they are out of flow too.
+     Row 1 = context + engine, row 2 = command + session. That is DOM order read
+     left-to-right, top-to-bottom, so tab order still matches reading order
+     (WCAG 2.4.3) — which is exactly why the engine is NOT the full-bleed second
+     row, however much better that looks. */
+  .hud {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: auto auto;
+    row-gap: var(--sp-2); min-height: 0; padding: var(--sp-2) var(--sp-3);
+  }
+  .hud-context  { grid-area: 1 / 1; flex-wrap: wrap; row-gap: var(--sp-1); }
+  .hud-engine   { grid-area: 1 / 2; }
+  .hud .hud-cmd { grid-area: 2 / 1; width: 100%; max-width: none; margin: 0; padding: 0 10px; }
+  .hud-session  { grid-area: 2 / 2; }
+  /* Only reachable with 2+ instances: the switcher takes its own line inside the
+     context cell rather than squeezing the title. A <select> is focusable, so it
+     can never be display:none'd to buy room. NO :has() needed — while it is
+     [hidden] it is display:none and contributes nothing to the wrap, so the
+     single-instance default is untouched with zero feature dependency. */
+  .hud .ph-switch { flex: 1 0 100%; max-width: none; }
+}
+@media (max-width: 430px) {
+  /* Below 430 the engine's 200px max-content drives the grid's `auto` column and
+     squeezes the title toward zero — measured at 27px at 320 before this tier.
+     Shrinking the capsule 200 → 172px keeps #blockingLabel ("Disabled") and the
+     toggle fully intact at every width down to 320, and leaves the title 127px
+     at 390 — 2px short of the longest section name, so it ellipsises rather than
+     disappears. The state pair NEVER disappears: measured labClip === false at
+     every width in every state. */
+  .hud { padding: var(--sp-2); }
+  .hud-engine { padding: 0 var(--sp-1) 0 6px; gap: var(--sp-1); }
+  .hud-eng-text { width: 72px; }
+  .hud-engine .btn-toggle { min-width: 62px; padding: 0 9px; }
+  .hud .hud-cmd { min-width: 34px; }
+}
+
+/* flex:1 + min-height:0 makes <main> claim the space left by the header
+   independently of its content — without it a fill-section (flex-basis:0)
+   collapses <main> to nothing and the table gets zero height. */
+main {
+  flex: 1 1 auto; min-height: 0;
+  overflow-y: auto; padding: var(--pad-page); scroll-behavior: smooth;
+  display: flex; flex-direction: column;
+}
+main::-webkit-scrollbar, .table-wrap::-webkit-scrollbar, .pattern-builder::-webkit-scrollbar, .builder::-webkit-scrollbar { width: 9px; height: 9px; }
+main::-webkit-scrollbar-thumb, .table-wrap::-webkit-scrollbar-thumb, .pattern-builder::-webkit-scrollbar-thumb, .builder::-webkit-scrollbar-thumb { background: var(--mesh-link); border-radius: var(--r-sm); }
+
+.section { display: none; animation: fadeUp 0.35s ease; }
+.section.active { display: block; flex: 0 0 auto; }   /* natural height; <main> scrolls */
+@keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+
+/* Sections dominated by one long table fill the remaining viewport height and
+   scroll INSIDE the table instead of being capped at an arbitrary vh, which
+   used to leave dead space under the card while the table had its own bar. */
+.section.fill.active { display: flex; flex-direction: column; flex: 1 1 0; min-height: 0; }
+.section.fill .stretch {
+  flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0; margin-bottom: 0;
+  /* A floor, so a tall sibling card can no longer squeeze this one to its own
+     padding. The percentage half degrades to the section height when the section
+     is shorter than the floor, keeping the card shrinkable; any overflow lands
+     inside main{overflow-y:auto}, never under body{overflow:hidden}. */
+  min-height: min(240px, 100%);
+}
+.section.fill .stretch .table-wrap { flex: 1 1 auto; min-height: 0; max-height: none; }
+
+/* The five card primitives no longer blur. Only .modal-back and .cp-back keep
+   backdrop-filter, because they are the only two surfaces with genuinely
+   scrolling content behind them. */
+.stat-tile, .insight-card, .ap-card, .infra-card { isolation: isolate; }
+.insight-card, .ap-card, .infra-card { box-shadow: var(--panel-edge); border-color: var(--panel-line); }
+.toast, .cp, .chart-tip, .mesh-tools, .mesh-tip { background: var(--surface-float); }
+.toast, .mesh-tip { box-shadow: var(--shadow-2); }
+.cp { box-shadow: var(--shadow-3); border-radius: var(--r-xl); }
+
+/* ===================== Grids ===================== */
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-5); margin-bottom: var(--sp-5); }
+.grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: var(--sp-5); margin-bottom: var(--sp-5); }
+.span-2wide { grid-column: 1 / -1; }
+/* One ruler. Previously .grid-3 was already 1-up at 1050 while .stat-row was
+   still 4-up until 900, so at ~1000px a 167.5px tile ran its 28px value under
+   the absolutely-positioned 38px icon chip. */
+@media (max-width: 1050px) {
+  .grid-3 { grid-template-columns: 1fr; }
+  .grid-2 { grid-template-columns: 1fr; }
+  .stat-row, .insight-row { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* ===================== Stat tiles ===================== */
+.stat-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--sp-5); margin-bottom: var(--sp-5); }
+/* One hue per metric, declared ONCE per tile through the inheritable accent trio,
+   so the accent bar, the chip tint and the icon colour all follow from a single
+   class instead of three rules per hue. */
+.stat-tile {
+  position: relative;
+  padding: var(--pad-card); padding-left: 20px;   /* 3px border + 20 = the same 23px inset */
+  background: var(--panel);
+  border: 1px solid var(--panel-line);
+  border-left: 3px solid var(--accent-mark);   /* AFTER the shorthand, or it is reset */
+  border-radius: var(--radius);
+  box-shadow: var(--panel-edge);
+  transition: box-shadow var(--dur-1) var(--ease-out);
+  --accent-mark: var(--blue); --accent-tint: var(--tint-blue); --accent-ink: var(--blue-text);
+}
+.stat-tile.red    { --accent-mark: var(--red);    --accent-tint: var(--tint-red);    --accent-ink: var(--red-text); }
+.stat-tile.amber  { --accent-mark: var(--amber);  --accent-tint: var(--tint-amber);  --accent-ink: var(--amber-text); }
+.stat-tile.green  { --accent-mark: var(--green);  --accent-tint: var(--tint-green);  --accent-ink: var(--green-text); }
+.stat-tile.violet { --accent-mark: var(--violet); --accent-tint: var(--tint-violet); --accent-ink: var(--violet-text); }
+/* THE CLIPPING FIX. The reference itself shows two of six values cut off mid-glyph,
+   because a 48px chip plus its gap eats ~62px of a ~190px tile and the number has
+   to fit whatever is left. Taking the chip OUT OF FLOW gives the value the tile's
+   full width, so it cannot clip at any breakpoint — including the 6-column
+   >=1500px tier where the overflow measured 14.2px. Moving the chip to the
+   top-right is a deliberate, stated deviation from the reference: it is the only
+   way to keep a big number and a chip in a 190px tile without one truncating the
+   other. */
+.stat-ico {
+  position: absolute; top: var(--pad-card-y); right: 14px;   /* right kept: preserves nowrap room at >=1500px */
+  width: 38px; height: 38px; display: grid; place-items: center;
+  border-radius: var(--r-md);
+  background: var(--accent-tint); color: var(--accent-ink);
+  pointer-events: none;
+}
+.stat-ico .dev-ico { color: inherit; margin: 0; opacity: 1; }
+.stat-body { min-width: 0; }
+.stat-label {
+  padding-right: 46px;                 /* clears the 38px chip */
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+/* These were declared TWICE at identical (0,1,0) specificity ten lines apart, so
+   the later pair won and var(--fs-stat) / var(--fs-200) had NEVER applied — two
+   of the file's token references were inert. The duplicate is deleted; the only
+   thing it really contributed, the mono family, is folded in here. */
+.stat-value {
+  margin-top: 4px;
+  font-size: var(--fs-stat); font-weight: var(--fw-bold); line-height: 1.05;
+  color: var(--text); letter-spacing: -0.03em;
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+/* The transition was declared INSIDE :hover, so the lift animated in and snapped
+   back on all twelve tiles. It belongs on the base rule. */
+.stat-tile:hover { box-shadow: var(--panel-edge-hi); }
+.tpl:hover, .tpl:focus-visible { box-shadow: var(--panel-edge-hi); }
+
+/* ===================== Glass cards ===================== */
+.glass {
+  background: var(--panel);
+  border: 1px solid var(--panel-line);
+  border-radius: var(--radius);
+  padding: var(--pad-card);
+  margin-bottom: var(--sp-5);
+  /* The original read `box-shadow: 0 8px 40px var(--shadow-lg), inset …`, but
+     --shadow-lg is itself a COMPLETE shadow, so layer one expanded to six
+     lengths where box-shadow accepts at most four. Invalid after var()
+     substitution means the WHOLE property is dropped — all ~128 cards computed
+     to `box-shadow: none`, which is why the app read as flat.
+     Verify: getComputedStyle(document.querySelector('.glass')).boxShadow */
+  box-shadow: var(--panel-edge);
+  transition: box-shadow var(--dur-1) var(--ease-out);
+  /* backdrop-filter used to create a stacking context that the sticky <th>
+     (z-index 2) and .chart-tip (z-index 6) lived inside. Removing the blur
+     removes that context, so state the intent explicitly — isolation costs no
+     paint, unlike the blur, which resampled three STATIC radial gradients
+     across 23 layers on Overview alone. */
+  isolation: isolate;
+}
+/* Nested cards: #s-gateway puts four .glass inside a .glass, which would vanish
+   against an opaque parent. */
+.glass .glass, .glass .stat-tile, .glass .insight-card { background: var(--panel-2); }
+.glass-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: var(--sp-3); margin-bottom: var(--sp-3); flex-wrap: wrap;
+}
+/* The single highest-leverage declaration in the file: one selector, all 66
+   .glass-head, all 19 sections. */
+.glass-head h2 {
+  margin: 0; font-size: var(--fs-600); font-weight: var(--fw-bold);
+  letter-spacing: -0.011em; line-height: 1.25; color: var(--text);
+  display: flex; align-items: center; gap: var(--sp-2);
+}
+/* A card inside a card rendered at the SAME size, so depth was unreadable.
+   (0,3,0) beats (0,2,0) regardless of source order. */
+.glass .glass .glass-head h2 {
+  font-size: var(--fs-500); font-weight: var(--fw-semi); letter-spacing: -0.005em;
+}
+/* Head-wrap guard, required by the larger h2. At 1440 in the two-column band the
+   head had only ~9px of slack; an 18px/700 title would tip #domainsTableHead into
+   wrapping, costing a 36px row plus gap = ~1.4 table rows. Making the search
+   field the flex sink returns the space. .row-actions declared no `flex`, which
+   was the latent defect. */
+.glass-head .row-actions { flex: 1 1 auto; min-width: 0; justify-content: flex-end; }
+.glass-head .row-actions > input[type="search"] { flex: 1 1 130px; min-width: 0; }
+/* The selects declared no `flex`, so they demanded their intrinsic width — and
+   "All match types" is long — which pushed .row-actions past the head and made
+   it wrap INTERNALLY to a second line. A wrapped head costs a full table row. */
+.glass-head .row-actions > select { flex: 0 1 auto; min-width: 0; max-width: 132px; }
+/* The Pattern Builder's 3px accent rail, generalised to every card head. h2 is
+   already flex with a gap, so ::before is a flex item spaced for free, and
+   height:1em (14px) is shorter than the line box (~17px) — exactly 0px of added
+   height across all 68 heads. */
+/* Decision: KEEP the rail, FLATTEN the fill. Grafana's rule is that saturation
+   belongs to data, not chrome — and with the shadow gone this rail plus the
+   hairline below are the only marks that say "this is a panel head". */
+/* ══ THE SCANNING LAYER ══
+   One rule replaces eleven definitions of the same concept, which between them
+   used five sizes, six tracking values and three weights — so the same micro-label
+   looked different in every section. Unified onto the Pattern Builder's values,
+   because that is the surface the user has said feels right, normalised to the
+   ramp (10.5px -> --fs-100, 0.9px -> 0.09em, 650 -> --fw-semi).
+   .dt th stays OUT: it is a sticky table header with its own height, background,
+   box-shadow and overflow contract. */
+.stat-label,
+.gauge .g-name,
+.modal .field label,
+.insight-card .ic-label,
+.pb-head h3,
+.pb-field > span,
+.pb-out-head,
+.cp-item .cp-tag {
+  font-size: var(--fs-100);
+  font-weight: var(--fw-semi);
+  line-height: 1.2;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.glass-head h2::before {
+  content: ''; flex: none; width: 3px; height: 1em;
+  border-radius: var(--r-pill);
+  /* Inheritable: a section or a single card recolours its own title by setting
+     --accent-mark once, with no per-section CSS. */
+  background: var(--accent-mark, var(--blue));
+}
+/* Inset rather than full-bleed: a negative-margin child inside the four cards
+   that are overflow-y:auto / overflow:hidden would force overflow-x and grow a
+   horizontal scrollbar. */
+/* The Grafana pass put a hairline under all 68 heads AND desaturated the rail.
+   Both were "chrome recedes" moves that read as boxy here: a rule under every
+   title inside an already-edged card is one line too many. */
+.glass-head { padding-bottom: 0; border-bottom: 0; }
+.count-pill { font-size: 11px; font-family: var(--mono); color: var(--cyan-text); background: var(--cyan-fill); padding: 1px 8px; border-radius: var(--r-pill); }
+.legend { display: flex; gap: var(--sp-3); font-size: 11px; color: var(--muted); }
+.lg::before { content: '●'; margin-right: 5px; }
+.lg-a::before { color: var(--cyan); } .lg-b::before { color: var(--red); } .lg-c::before { color: var(--violet); } .lg-d::before { color: var(--muted); } .lg-e::before { color: var(--green); }
+
+.chart-wrap { position: relative; width: 100%; }
+/* Canvases default to 300x200 with display:inline, so without this the chart
+   drew at 300px inside a ~1000px card and looked broken. */
+.chart-wrap canvas, canvas.chart { display: block; width: 100%; height: 100%; }
+#historyChart { height: 260px; }
+#routerHistChart { height: 190px; }
+.chart-tip {
+  position: absolute; display: none; pointer-events: none; z-index: 6;
+  background: var(--panel-solid); border: 1px solid var(--stroke-strong);
+  border-radius: var(--r-md); padding: 8px 11px; font-size: 11.5px; line-height: 1.55;
+  box-shadow: var(--shadow-lg); white-space: nowrap;
+}
+.chart-tip b { color: var(--text); }
+.chart-tip .ct-t { color: var(--muted); font-family: var(--mono); font-size: 10.5px; }
+.chart-tip .sw { display: inline-block; width: 8px; height: 8px; border-radius: var(--r-xs); margin-right: 6px; }
+
+/* ===================== Gauges ===================== */
+.gauges { display: flex; justify-content: space-around; gap: var(--sp-2); margin-bottom: var(--sp-3); }
+.gauge { width: 92px; height: 92px; position: relative; }
+.gauge svg { transform: rotate(-90deg); }
+.gauge .g-track { fill: none; stroke: var(--grid); stroke-width: 8; }
+.gauge .g-fill { fill: none; stroke-width: 8; stroke-linecap: round; transition: stroke-dashoffset 0.8s cubic-bezier(.2,.8,.2,1); }
+.gauge .g-label { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.gauge .g-val { font-family: var(--mono); font-size: 17px; font-weight: 700; }
+
+/* ===================== Donut ===================== */
+.donut-wrap { display: flex; align-items: center; gap: var(--sp-4); flex-wrap: wrap; }
+.donut-legend { display: flex; flex-direction: column; gap: var(--sp-1); font-size: 12px; flex: 1; min-width: 120px; }
+.donut-legend .dl { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-2); }
+.donut-legend .dl i { width: 9px; height: 9px; border-radius: var(--r-xs); display: inline-block; margin-right: var(--sp-2); }
+.donut-legend .dl .v { color: var(--muted); font-family: var(--mono); }
+
+/* ===================== Bar lists ===================== */
+.bar-list { display: flex; flex-direction: column; gap: var(--sp-2); }
+.bar-item .bar-row { display: flex; align-items: baseline; justify-content: space-between; font-size: 12.5px; margin-bottom: var(--sp-1); }
+.bar-item .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 76%; }
+.bar-item .val { color: var(--muted); font-family: var(--mono); }
+.bar-item .sub { color: var(--muted); font-size: 10px; }
+.bar-track { height: 5px; background: var(--track); border-radius: var(--r-xs); overflow: hidden; }
+.bar-fill { height: 100%; border-radius: var(--r-xs); background: var(--grad); transition: width 0.6s; }
+.bar-fill.red { background: linear-gradient(90deg, var(--red), #ff8aa0); }
+
+/* ===================== Tables ===================== */
+/* scroll-padding-block-start clears the sticky <th> (~33px) plus the 2px focus
+   outline-offset, so tab-stepping down a table never parks a control underneath
+   the header (WCAG 2.2 SC 2.4.11). */
+.table-wrap { overflow: auto; max-height: 62vh; scroll-padding-block-start: 36px; }
+.dt { width: 100%; border-collapse: collapse; font-size: var(--fs-table); }
+.dt th {
+  /* D1: was var(--panel-solid), which resolves to --surface-float = #ffffff in
+     LIGHT theme — IDENTICAL to --panel, a measured 1.000:1. The light sticky
+     header had NO surface and rows scrolled visibly through it, in all 19
+     tables. --surface-head exists for exactly this and had zero call sites. */
+  height: var(--row-h-th);
+  padding: 0 var(--pad-cell-x);
+  text-align: left; vertical-align: middle;
+  color: var(--muted); font-weight: 600; font-size: var(--fs-th);
+  text-transform: uppercase; letter-spacing: 0.5px;
+  /* A wrapped header doubles the sticky row inside a fixed-height shell, which
+     is a layout regression; truncating makes it a content one. */
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  position: sticky; top: 0; z-index: 2;
+  background: var(--surface-head);
+  /* D2: under border-collapse a cell's BORDER belongs to the table's border
+     grid, so it paints in the table layer and scrolls out from under the sticky
+     header. An inset shadow is painted with the cell and travels with it, at
+     zero layout cost. */
+  border-bottom: 0;
+  box-shadow: inset 0 -1px 0 var(--stroke-strong);
+}
+.dt td {
+  height: var(--row-h);
+  padding: 0 var(--pad-cell-x);
+  /* Cells are baseline-aligned by default, which parks text at the top of a cell
+     taller than its content. */
+  vertical-align: middle;
+  border-bottom: 1px solid var(--row-line);
+}
+/* D4 deleted: `.dt tbody, .dt tr { transition: background 0.15s }` named the
+   property on TR while the hover rule paints background on TD — 501 elements in
+   the query log carrying a transition that could never fire. */
+.dt tbody tr:hover td { background: var(--hover); }
+.dt td.acts { height: var(--row-h); padding-block: 0; }
+/* Numeric columns register on the ones digit. Neither property affects a line
+   box's height, so the 34px --row-h pitch is untouched. (.mono at :331 already
+   covers every mono cell, so the rule this replaces was unreachable weight.) */
+.dt th.num, .dt td.num { text-align: right; font-variant-numeric: tabular-nums; }
+.empty { color: var(--muted); text-align: center; padding: 26px; font-size: 13px; }
+
+/* ===================== Pills ===================== */
+.pill { display: inline-block; padding: 2px 9px; border-radius: var(--r-pill); font-size: 10.5px; font-weight: 650; letter-spacing: 0.3px; }
+/* Every tint now comes from a token that has a LIGHT override. Previously all 54
+   accent rgba() literals in this file were dark-theme values with no light
+   counterpart, so light-theme pills were filled with dark neon under the
+   carefully darkened *-text foregrounds. */
+.pill.green { background: var(--tint-green); color: var(--green-text); }
+.pill.red { background: var(--tint-red); color: var(--red-text); }
+.pill.blue { background: var(--tint-blue); color: var(--blue-text); }
+.pill.violet { background: var(--tint-violet); color: var(--violet-text); }
+.pill.gray { background: var(--tint-neutral); color: var(--muted); }
+.pill.amber { background: var(--tint-amber); color: var(--amber-text); }
+/* Outline variant: a second enum column beside a coloured .pill needs equal
+   structure but less colour, or one cell reads styled and its neighbour raw. */
+.pill.ghost { background: transparent; border: 1px solid var(--stroke-strong); color: var(--muted); font-family: var(--mono); font-size: 10px; padding: 1px 8px; }
+
+/* ===================== Forms ===================== */
+input, select {
+  background: var(--surface-input); border: 1px solid var(--stroke); color: var(--text);
+  height: var(--ctl-h); padding: 0 12px; border-radius: var(--r-md);
+  font-size: var(--fs-400); font-family: inherit; outline: none;
+  transition: border-color var(--dur-1) var(--ease-out), background-color var(--dur-1) var(--ease-out);
+}
+input::placeholder { color: var(--muted); opacity: 1; }
+input:hover:not(:disabled), select:hover:not(:disabled) { border-color: var(--stroke-strong); }
+/* The focus indicator is the 2px offset outline from the a11y block, NOT a 3px
+   12%-alpha ring — a tint that light cannot reach 3:1 is not a compliant
+   indicator (WCAG 2.2 SC 2.4.11). One border change, one outline. */
+input:focus, select:focus, textarea:focus { border-color: var(--cyan); }
+input:disabled, select:disabled { opacity: 0.5; cursor: not-allowed; }
+input[aria-invalid="true"] { border-color: var(--red); }
+/* Native select chevron replaced with a token data URI — still zero external
+   requests, and it now follows the theme. */
+select {
+  appearance: none; -webkit-appearance: none;
+  background-image: var(--chevron); background-repeat: no-repeat;
+  background-position: right 12px center; background-size: 12px;
+  padding-right: 30px;
+}
+.form-row { display: flex; gap: var(--sp-2); flex-wrap: wrap; align-items: center; }
+.form-row input[type=text], .form-row input[type=search] { flex: 1; min-width: 180px; }
+.row-actions { display: flex; gap: var(--sp-2); align-items: center; flex-wrap: wrap; }
+.row-actions.wrap { gap: var(--sp-3); }
+.hint { color: var(--muted); font-size: 12px; margin: 10px 0 0; min-height: 15px; }
+.hint.error { color: var(--red); } .hint.ok { color: var(--green); }
+
+/* ===================== Buttons ===================== */
+/* One height for every control. `.btn` used to render 35.1px, `input` 35.7px and
+   `.btn-icon` 38.2px as siblings in the same align-items:center row — the most
+   legible "hand-built" tell in the app. */
+.btn {
+  background: var(--chip); color: var(--text); border: 1px solid var(--stroke);
+  height: var(--btn-h, var(--ctl-h)); padding: 0 15px; border-radius: var(--r-md);
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--sp-2);
+  cursor: pointer; font-size: var(--fs-400); font-weight: 600; font-family: inherit;
+  /* was `transition: all`, which animates layout properties too */
+  transition: background-color var(--dur-1) var(--ease-out),
+              border-color var(--dur-1) var(--ease-out),
+              color var(--dur-1) var(--ease-out);
+  white-space: nowrap;
+}
+/* No translateY lift and no neon bloom: glow is a zero-direction light source,
+   so it says "lit" but never "above", and it fired on 40+ buttons. */
+.btn:hover { border-color: var(--stroke-strong); background: var(--hover); }
+.btn:active { background: var(--track); }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; box-shadow: none; }
+/* --grad put the label on a cyan→violet fill: against the violet end, #04121a
+   measured 3.56:1 in light theme — an AA failure on the app's primary CTA. A
+   solid accent with its own ink token measures 10.49:1 dark / 5.58:1 light. */
+.btn-primary { background: var(--accent-solid); color: var(--accent-fg); border: 1px solid transparent; font-weight: 700; }
+.btn-primary:hover { background: var(--accent-hi); border-color: transparent; }
+.btn-primary:hover { filter: brightness(1.1); }
+.btn-toggle { min-width: 84px; font-weight: 700; }
+.btn-toggle.on { background: var(--accent-solid); color: var(--accent-fg); border: 1px solid transparent; }
+.btn-toggle.on:hover { background: var(--accent-hi); }
+.btn-toggle.off { background: rgba(255,92,122,0.14); color: var(--red); border-color: rgba(255,92,122,0.4); }
+.btn-icon { width: var(--btn-h, var(--ctl-h)); padding: 0; font-size: var(--fs-500); }
+.btn-ghost { background: transparent; }
+.btn-danger { background: var(--tint-red); color: var(--red-text); border-color: rgba(255,92,122,0.28); }
+.btn-danger:hover { border-color: var(--red); background: var(--tint-red); }
+.btn-sm { --btn-h: var(--ctl-h-sm); padding: 0 11px; font-size: var(--fs-200); }
+.btn.full { width: 100%; }
+
+/* ===================== Switches ===================== */
+/* Inputs stay in the a11y tree (visually hidden, NOT display:none) so they
+   remain keyboard-focusable and screen-reader operable. */
+.vh, .vh-input, .switch input, .switch-sm input, .check-grid input {
+  position: absolute; width: 1px; height: 1px; margin: 0; padding: 0;
+  clip-path: inset(50%); overflow: hidden; white-space: nowrap; opacity: 0;
+}
+.switch input:focus-visible + span,
+.switch-sm input:focus-visible + span,
+.check-grid input:focus-visible + span { outline: 2px solid var(--cyan); outline-offset: 2px; }
+.check-grid label:focus-within { border-color: var(--cyan); box-shadow: 0 0 0 2px rgba(34,211,238,0.25); }
+.switch { position: relative; display: inline-block; width: 40px; height: 22px; cursor: pointer; }
+.switch span { position: absolute; inset: 0; background: var(--track); border-radius: var(--r-pill); transition: 0.25s; }
+.switch span::before { content: ''; position: absolute; width: 16px; height: 16px; left: 3px; top: 3px; background: var(--muted); border-radius: 50%; transition: 0.25s; }
+.switch input:checked + span { background: var(--grad); }
+.switch input:checked + span::before { transform: translateX(18px); background: #04121a; }
+.switch-sm { position: relative; display: inline-flex; align-items: center; gap: var(--sp-1); font-size: 12px; color: var(--muted); cursor: pointer; }
+.switch-sm span { width: 32px; height: 18px; background: var(--track); border-radius: var(--r-pill); position: relative; transition: 0.25s; }
+.switch-sm span::before { content: ''; position: absolute; width: 13px; height: 13px; left: 2px; top: 2.5px; background: var(--muted); border-radius: 50%; transition: 0.25s; }
+.switch-sm input:checked + span { background: var(--grad); }
+.switch-sm input:checked + span::before { transform: translateX(14px); background: #04121a; }
+
+/* ===================== Key-value & chips ===================== */
+.mini-kv { display: grid; grid-template-columns: auto 1fr; align-items: baseline; gap: var(--sp-2) var(--sp-4); font-size: 12.5px; }
+.mini-kv.cols3 { grid-template-columns: auto 1fr auto 1fr auto 1fr; }
+.mini-kv .k { color: var(--muted); }
+.mini-kv .v { font-family: var(--mono); text-align: right; }
+.chip-list { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.chip {
+  display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-2); padding-left: var(--sp-4);
+  background: var(--chip); border: 1px solid var(--stroke); border-radius: var(--r-pill); font-family: var(--mono); font-size: 12.5px;
+}
+.chip button { background: none; border: none; color: var(--red); cursor: pointer; font-size: 15px; line-height: 1; padding: 0 4px; }
+/* Icon variant of the chip's remove control, matching .btn-icon-sm elsewhere.
+   .dt td .dev-ico forces cyan + a margin, so re-neutralise those here too. */
+.chip .chip-x { display: inline-flex; align-items: center; color: var(--muted); padding: 0 2px; transition: color 0.15s; }
+.chip .chip-x:hover, .chip .chip-x:focus-visible { color: var(--red); }
+.chip .chip-x .dev-ico { color: inherit; margin: 0; opacity: 1; width: 12px; height: 12px; display: block; }
+.toggle-list { display: flex; flex-direction: column; gap: var(--sp-3); }
+.toggle-row { display: flex; align-items: center; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--hover); }
+.toggle-row .tr-name { font-size: 13px; } .toggle-row .tr-desc { font-size: 11px; color: var(--muted); }
+
+/* ===================== Toast ===================== */
+.toast {
+  position: fixed; bottom: 26px; left: 50%; transform: translateX(-50%) translateY(160%);
+  background: var(--panel-solid); border: 1px solid var(--stroke-strong); color: var(--text);
+  padding: 13px 22px; border-radius: var(--r-md); z-index: 100; font-size: 13px; max-width: 90vw;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.5); transition: transform 0.35s cubic-bezier(.2,.9,.2,1);
+}
+.toast.show { transform: translateX(-50%) translateY(0); }
+.toast.ok { border-color: var(--green); }
+.toast.err { border-color: var(--red); }
+
+/* ===================== Modal ===================== */
+.modal-back { position: fixed; inset: 0; background: var(--overlay); backdrop-filter: blur(4px); display: none; align-items: center; justify-content: center; z-index: 60; }
+.modal-back.show { display: flex; }
+.modal { background: var(--surface-float); border: 1px solid var(--stroke-strong); border-radius: var(--radius); padding: 26px; width: min(400px, 92vw); box-shadow: var(--shadow-3); }
+.modal h3 { margin: 0 0 18px; font-size: 17px; }
+.dur-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-2); margin-bottom: var(--sp-3); }
+.dur-grid .btn { width: 100%; }
+.modal-actions { display: flex; gap: var(--sp-2); justify-content: flex-end; margin-top: 18px; }
+.modal .field { margin-bottom: var(--sp-3); }
+.modal .field label { display: block; margin-bottom: 6px; }
+.modal .field input { width: 100%; }
+.check-grid { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.check-grid label { position: relative; display: flex; align-items: center; gap: var(--sp-1); font-size: 12px; padding: 5px 10px; background: var(--hover); border: 1px solid var(--stroke); border-radius: var(--r-sm); cursor: pointer; }
+.check-grid label.on { border-color: var(--cyan); color: var(--cyan); background: rgba(34,211,238,0.08); }
+
+/* ===================== Favicons ===================== */
+/* Letter tile always renders behind; the real favicon fades in on top when it
+   loads, so a slow/unreachable icon service never leaves a blank square. */
+.fav { position: relative; display: inline-block; width: 18px; height: 18px; vertical-align: middle; margin-right: 8px; flex-shrink: 0; }
+.fav i { position: absolute; inset: 0; display: grid; place-items: center; border-radius: var(--r-xs); font-style: normal; font-size: 10px; font-weight: 700; color: #fff; background: hsl(var(--h,210), 45%, 48%); }
+.fav img { position: absolute; inset: 0; width: 18px; height: 18px; border-radius: var(--r-xs); object-fit: cover; opacity: 0; transition: opacity 0.2s; }
+.fav img.ok { opacity: 1; }
+.dom-cell { display: flex; align-items: center; min-width: 0; }
+.dom-cell .mono { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ===================== Insights ===================== */
+.insight-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--sp-5); margin-bottom: var(--sp-5); }
+.insight-card { background: var(--panel); border: 1px solid var(--stroke); border-left-width: 3px; border-radius: var(--radius); padding: 16px 18px; padding-left: 16px; }
+.insight-card .ic-value { font-size: 19px; font-weight: 750; margin: 4px 0 2px; letter-spacing: -0.3px; }
+.insight-card .ic-sub { font-size: 11.5px; color: var(--muted); font-family: var(--mono); }
+.insight-card.hot { border-left-color: var(--cyan); }
+.insight-card.warn { border-left-color: var(--amber); }
+.insight-card.bad { border-left-color: var(--red); }
+.insight-card.good { border-left-color: var(--green); }
+
+.mini-bar { height: 4px; border-radius: var(--r-xs); background: var(--grid); margin-top: 6px; overflow: hidden; }
+.mini-bar i { display: block; height: 100%; background: var(--grad); border-radius: var(--r-xs); }
+.mini-bar i.red { background: linear-gradient(90deg, var(--red), #ff8aa0); }
+
+/* Security checklist */
+.sec-list { display: flex; flex-direction: column; }
+.sec-item { display: flex; align-items: flex-start; gap: var(--sp-3); padding: 12px 0; border-bottom: 1px solid var(--chip); }
+.sec-item:last-child { border-bottom: none; }
+.sec-icon { width: 30px; height: 30px; border-radius: var(--r-md); display: grid; place-items: center; font-size: 15px; flex-shrink: 0; }
+.sec-icon.ok { background: rgba(52,229,176,0.13); color: var(--green); }
+.sec-icon.warn { background: rgba(255,181,71,0.13); color: var(--amber); }
+.sec-icon.bad { background: rgba(255,92,122,0.13); color: var(--red); }
+.sec-text b { font-size: 13px; display: block; }
+.sec-text span { font-size: 11.5px; color: var(--muted); }
+
+/* Manageable-controls note */
+.controls-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: var(--sp-2); }
+.ctrl { display: flex; gap: var(--sp-2); padding: var(--sp-3); background: var(--hover); border: 1px solid var(--stroke); border-radius: var(--r-md); cursor: pointer; transition: border-color var(--dur-1) var(--ease-out), background-color var(--dur-1) var(--ease-out); }
+.ctrl:hover { border-color: var(--cyan); }
+.ctrl .ct-ico { font-size: 17px; }
+.ctrl b { font-size: 12.5px; display: block; } .ctrl span { font-size: 11px; color: var(--muted); }
+
+/* ===================== Gateway connection path ===================== */
+.path-flow { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-1); padding: var(--sp-1) 2px; }
+.hop { display: flex; flex-direction: column; align-items: center; gap: var(--sp-2); flex: 0 0 auto; text-align: center; }
+.hop .hop-ico { width: 48px; height: 48px; border-radius: var(--r-md); display: grid; place-items: center; font-size: 22px; background: var(--track); border: 1px solid var(--stroke); }
+.hop.up .hop-ico { border-color: rgba(52,229,176,0.4); }
+.hop.down .hop-ico { border-color: rgba(255,92,122,0.5); }
+.hop .hop-name { font-size: 11px; font-weight: 600; }
+.hop .hop-meta { font-size: 10px; color: var(--muted); font-family: var(--mono); }
+.link { flex: 1; height: 2px; position: relative; background: var(--track); border-radius: var(--r-xs); min-width: 24px; }
+.link.up { background: linear-gradient(90deg, var(--green), var(--cyan)); }
+.link.down { background: var(--red); }
+/* @keyframes flow deleted: it animated `left`, a LAYOUT property, forever, on
+   every hop link in the Gateway path. */
+
+/* ===================== Skeleton loading ===================== */
+.skeleton { position: relative; color: transparent !important; border-radius: var(--r-sm); overflow: hidden; background: var(--track); min-width: 60px; }
+.skeleton::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, transparent, var(--grid), transparent); animation: shimmer 1.4s infinite; }
+@keyframes shimmer { from { transform: translateX(-100%); } to { transform: translateX(100%); } }
+
+/* ===================== Network mesh ===================== */
+.mesh-wrap { position: relative; width: 100%; overflow: hidden; border-radius: var(--r-md); }
+#meshSvg { width: 100%; height: auto; display: block; cursor: grab; touch-action: none; }
+#meshSvg.panning { cursor: grabbing; }
+#meshSvg .mnode { cursor: grab; }
+#meshSvg .mnode.dragging { cursor: grabbing; }
+#meshSvg .mnode.dragging circle.body { stroke-width: 3; }
+
+/* floating map toolbar */
+.mesh-tools {
+  position: absolute; top: 10px; right: 10px; display: flex; align-items: center; gap: var(--sp-1);
+  background: var(--panel-solid); border: 1px solid var(--stroke); border-radius: var(--r-md);
+  padding: 5px 7px; box-shadow: var(--shadow-lg); z-index: 5;
+}
+.mesh-tools .zoom-label { font-size: 11px; color: var(--muted); min-width: 38px; text-align: center; }
+.mesh-tools .btn-icon { font-size: var(--fs-500); }
+#meshResetLayout { opacity: 0.45; }
+#meshResetLayout.has-custom { opacity: 1; border-color: var(--amber); color: var(--amber); }
+#meshModeBtn.mode-auto { border-color: var(--cyan); color: var(--cyan); }
+@media (max-width: 700px) { .mesh-tools { flex-wrap: wrap; max-width: 46%; } }
+#meshSvg .mlink { fill: none; stroke: var(--mesh-link); stroke-width: 1.2; }
+#meshSvg .mlink.direct { stroke-width: 1.6; }
+#meshSvg .mlink.indirect { stroke-dasharray: 5 5; }
+#meshSvg .mlink.active { stroke: rgba(34,211,238,0.5); }
+#meshSvg .mlink.trunk { stroke: rgba(52,229,176,0.55); stroke-width: 2.4; }
+#meshSvg .mlink.trunk-down { stroke: rgba(255,92,122,0.7); stroke-width: 2.4; }
+#meshSvg .mnode { cursor: pointer; }
+#meshSvg .mnode circle.body { fill: var(--node-fill); stroke: var(--muted); stroke-width: 1.5; transition: stroke 0.2s; }
+#meshSvg .mnode.active circle.body { stroke: var(--cyan); }
+#meshSvg .mnode.idle circle.body { stroke: var(--violet); }
+#meshSvg .mnode.stale circle.body { stroke: var(--mesh-link); opacity: 0.75; }
+#meshSvg .mnode.hub circle.body { fill: var(--node-fill-hub); stroke: var(--green); stroke-width: 2; }
+#meshSvg .mnode.hub-down circle.body { stroke: var(--red); }
+#meshSvg .mnode.pihole circle.body { fill: var(--node-fill-hub); stroke: var(--cyan); stroke-width: 2.2; }
+#meshSvg .mnode.ap circle.body { fill: var(--node-fill-hub); stroke: var(--amber); stroke-width: 2; }
+#meshSvg .mnode.ap .pulse-ring { stroke: var(--amber); }
+#meshSvg .mlink.band24 { stroke: rgba(79,139,255,0.5); stroke-dasharray: 3 3; }
+#meshSvg .mlink.band5 { stroke: rgba(167,139,250,0.55); stroke-dasharray: 3 3; }
+
+/* AP status strip */
+.ap-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: var(--sp-5); margin-bottom: var(--sp-5); }
+.ap-strip:empty { display: none; }
+.ap-card { background: var(--panel); border: 1px solid var(--stroke); border-left: 3px solid var(--amber); border-radius: var(--radius); padding: var(--sp-3) var(--sp-4); }
+.ap-card.down { border-left-color: var(--red); opacity: 0.75; }
+.ap-head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); font-size: 13px; margin-bottom: 5px; }
+.ap-body { font-size: 11.5px; color: var(--muted); }
+.ap-meta { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); margin-top: 9px; font-size: 11px; }
+
+.stat-row-8 { grid-template-columns: repeat(4, 1fr); }
+@media (min-width: 1500px) { .stat-row-8 { grid-template-columns: repeat(6, 1fr); } }
+
+/* ===================== Identity / roles ===================== */
+.role-legend { display: flex; flex-direction: column; gap: var(--sp-2); margin-top: var(--sp-3); padding-top: var(--sp-3);
+  border-top: 1px solid var(--stroke); font-size: 11.5px; color: var(--muted); }
+.role-legend .pill { margin-right: var(--sp-2); }
+/* hidden for non-admins; the server enforces the same rule independently */
+body:not([data-role="admin"]) .admin-only { display: none !important; }
+body[data-role="reader"] .rw-only { display: none !important; }
+.ap-cfg-row { display: flex; gap: var(--sp-2); flex-wrap: wrap; align-items: center; margin-bottom: var(--sp-2); }
+.ap-cfg-row input { flex: 1; min-width: 130px; }
+.ap-cfg-row select { flex: 1.4; min-width: 170px; }
+.ap-cfg-row .row-tag { font-size: 10.5px; color: var(--muted); min-width: 54px; font-family: var(--mono); }
+/* The row holds four inputs and two selects at 36px; its Test and delete buttons
+   were .btn-sm at 28px and floated 4px clear of the field line. (0,2,0) beats
+   both .btn-sm and .btn-icon-sm, and --btn-h drives BOTH axes so the icon button
+   stays square at 36x36. Dropping btn-sm in app.js instead would not work:
+   .btn-icon-sm would still win at 28px. */
+.ap-cfg-row .btn { --btn-h: var(--ctl-h); font-size: var(--fs-400); }
+.driver-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: var(--sp-2); max-height: 340px; overflow-y: auto; }
+.driver-item { display: flex; align-items: baseline; gap: var(--sp-2); padding: var(--sp-2) var(--sp-3); background: var(--chip);
+  border: 1px solid var(--stroke); border-radius: var(--r-md); font-size: 11.5px; }
+.driver-item b { color: var(--cyan); font-family: var(--mono); font-size: 10.5px; white-space: nowrap; }
+.driver-item span { color: var(--muted); }
+
+/* ===================== Pattern builder (regex generator) ===================== */
+/* `.builder` is the reusable form of this chrome; `.pattern-builder` remains as
+   the Domains-specific alias so that markup did not have to change. Anything
+   below that is genuinely regex-specific stays on `.pattern-builder` alone. */
+.builder, .pattern-builder {
+  margin-top: var(--sp-4); padding: var(--sp-4); border-radius: var(--r-md);
+  background: var(--chip);
+  border: 1px solid var(--stroke-strong);
+  border-left: 3px solid var(--violet);
+  /* minmax(0,1fr) is required: an implicit `auto` track takes min-content as its
+     floor, which is how one long test chip widened the whole panel. */
+  display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sp-4);
+  /* Populated, this panel's natural height came straight out of the table card
+     below it. Cap it and scroll INSIDE this container; the section row and the
+     page body are untouched. */
+  overflow-y: auto; overscroll-behavior: contain; scroll-padding: 4px;
+}
+/* Only the Domains instance shares a fixed-height column with a table, so only
+   it needs an internal cap. */
+.pattern-builder { max-height: clamp(240px, 44vh, 460px); }
+/* The track floor and a grid item's own automatic minimum size are two separate
+   clamps; without this, .pb-out propagates .pb-code's unwrapped min-content. */
+.builder > *, .pattern-builder > * { min-width: 0; }
+.pb-head h3 { margin: 0 0 6px; }
+.pb-head .hint { margin: 0; }
+/* min() keeps the 215px preference without making it a hard floor that
+   overflows the panel below a 394px viewport. */
+.pb-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(215px, 100%), 1fr)); gap: var(--sp-3); }
+.pb-field { display: flex; flex-direction: column; gap: var(--sp-1); min-width: 0; }
+.pb-field input, .pb-field select { width: 100%; }
+
+.pb-out-head {
+  display: flex; justify-content: space-between; align-items: center; gap: var(--sp-2); margin-bottom: 7px;
+}
+.pb-code {
+  display: block; padding: 12px 14px; border-radius: var(--r-md); font-size: 13.5px;
+  background: var(--surface-input); border: 1px solid var(--stroke); color: var(--cyan-text);
+  line-height: 1.55; user-select: all;
+  /* break-all split the \. escape pairs mid-token in the one string the operator
+     must verify character by character. Scroll it instead of reflowing it. */
+  white-space: pre; word-break: normal; overflow-x: auto; overscroll-behavior-x: contain;
+}
+.pb-code.invalid { color: var(--red-text); border-color: rgba(255,92,122,0.4); }
+.pb-note { font-size: 11.5px; margin: 8px 0 0; display: flex; gap: var(--sp-2); align-items: flex-start; line-height: 1.5; }
+.pb-note::before { content: '›'; font-weight: 700; flex: none; }
+.pb-note.info { color: var(--muted); }
+.pb-note.warn { color: var(--amber-text); }
+.pb-note.warn::before { content: '!'; }
+.pb-note.err { color: var(--red-text); }
+.pb-note.err::before { content: '×'; }
+
+.pb-test textarea {
+  width: 100%; background: var(--surface-input); border: 1px solid var(--stroke); color: var(--text);
+  padding: 10px 12px; border-radius: var(--r-md); font-size: 12.5px; font-family: var(--mono);
+  outline: none; resize: vertical; line-height: 1.7; transition: border 0.15s, box-shadow 0.15s;
+}
+.pb-test textarea:focus { border-color: var(--cyan); }
+.pb-test textarea:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+.pb-results { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin-top: 10px; }
+.pb-res {
+  display: inline-flex; align-items: center; gap: var(--sp-1); padding: 4px 10px; border-radius: var(--r-pill);
+  font-size: 11.5px; font-family: var(--mono); border: 1px solid transparent; max-width: 100%;
+}
+/* min-width:auto on a flex item resolves to min-content, so without these the
+   ellipsis never fired and one long sample domain widened the whole row. */
+.pb-res, .pb-res > span { min-width: 0; }
+.pb-res span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pb-res b { flex: none; font-size: 12px; line-height: 1; }
+.pb-res.hit { background: rgba(255,92,122,0.1); color: var(--red-text); border-color: rgba(255,92,122,0.26); }
+.pb-res.miss { background: rgba(52,229,176,0.09); color: var(--green-text); border-color: rgba(52,229,176,0.24); }
+.pb-res.hit-allow { background: rgba(52,229,176,0.1); color: var(--green-text); border-color: rgba(52,229,176,0.26); }
+/* "not matched" is a neutral outcome, not a coloured one. */
+.pb-res.miss-allow { background: var(--grid); color: var(--text); border-color: var(--stroke); }
+
+/* ===================== Domains page ===================== */
+/* Add-entry form: the same caption rhythm as .pb-field, so the card and its
+   nested builder read as one system instead of a raw strip above a labelled
+   grid. Every column may shrink; no fixed heights anywhere. */
+.form-grid {
+  display: grid; gap: var(--sp-3); align-items: end;
+  grid-template-columns:
+    minmax(180px, 2.2fr) minmax(110px, .7fr) minmax(150px, .9fr)
+    minmax(130px, .8fr) minmax(160px, 1.4fr) auto;
+}
+.form-grid > * { min-width: 0; }
+.form-grid .fg-actions { display: flex; gap: var(--sp-2); align-items: center; }
+/* Ladder rather than one jump: at 2 columns six fields are three rows tall and
+   the form was taking 60% of a 578px section, leaving the table 2 rows. */
+/* `not all and (...)` is the exact complement of the two-column band below,
+   rather than an integer-decremented approximation that leaves a gap at
+   fractional viewport widths (zoom, devicePixelRatio) where NEITHER matched and
+   the 6-column base pushed the submit button outside the card. */
+@media not all and (min-width: 1180px) and (min-height: 620px) {
+  .form-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .form-grid .fg-actions { grid-column: 1 / -1; justify-content: flex-end; }
+}
+@media (max-width: 719px) { .form-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 559px) {
+  .form-grid { grid-template-columns: minmax(0, 1fr); }
+  .form-grid .fg-actions .btn { flex: 1; }
+}
+/* reserve the message line so a result does not reflow the card */
+#domainMsg { min-height: 32px; }
+@media (max-height: 660px) { #domainMsg { min-height: 0; } }
+.row-actions .hint { margin: 0; }
+
+/* Wide and tall enough: builder BESIDE the table, not on top of it. */
+@media (min-width: 1180px) and (min-height: 620px) {
+  #s-domains.section.fill.active {
+    display: grid; gap: var(--sp-4);
+    grid-template-columns: minmax(420px, 0.85fr) minmax(0, 1.15fr);
+    grid-template-rows: minmax(0, 1fr);
+  }
+  #s-domains > .glass { margin-bottom: 0; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+  #s-domains > .glass.stretch { min-height: 0; overflow: hidden; }
+  /* .glass-head collects flex lines from each item's HYPOTHETICAL main size,
+     BEFORE flex-shrink runs, so the head took a second row (71px vs 36px, one
+     whole table row) rather than shrink a select by the few px it was over.
+     min-width:0 is already on .row-actions and both control types, so
+     forbidding the break is enough. (1,3,0) beats .glass-head (0,1,0). */
+  /* Keep the ACTIONS on one line so they shrink as a unit instead of stacking. */
+  #s-domains > .glass.stretch > .glass-head > .row-actions { flex-wrap: nowrap; }
+}
+/* Flexbox breaks lines on each item HYPOTHETICAL width (the actions want 426px)
+   BEFORE flex-shrink runs, so a single row requires nowrap on the head itself.
+   With nowrap the items shrink instead — but they can then be crushed, and the
+   floors above would make the head OVERFLOW rather than wrap. Hence 1280: it is
+   the narrowest width where title(197) + gap(12) + the actions floor(288) still
+   fits the 528px head. Below it the head wraps honestly, as it always did. */
+@media (min-width: 1280px) and (min-height: 620px) {
+  #s-domains > .glass.stretch > .glass-head { flex-wrap: nowrap; }
+  /* white-space:nowrap makes the title's min-content its FULL text, so flexbox
+     stops shrinking it — that shrink (213->195) was what pushed the text onto a
+     second 22.5px line and cost a whole table row. The head itself keeps
+     flex-wrap:wrap so it can still break honestly when it truly cannot fit. */
+  #s-domains > .glass.stretch > .glass-head > h2 { white-space: nowrap; }
+  /* Floors, so the row degrades by WRAPPING rather than by crushing a control:
+     without them the search collapsed to 26px at the 1180 tier floor. */
+  #s-domains > .glass.stretch > .glass-head select { min-width: 88px; }
+  #s-domains > .glass.stretch > .glass-head input[type="search"],
+  #s-domains > .glass.stretch > .glass-head .row-actions input { min-width: 96px; }
+  /* the column already scrolls, so the inner cap would double up */
+  #s-domains .pattern-builder { max-height: none; overflow: visible; }
+  #s-domains .form-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  #s-domains .form-grid .fg-actions { grid-column: 1 / -1; justify-content: flex-end; }
+}
+
+/* Stacked layout (too narrow or too short for two columns). Without this the
+   authoring card is a flex item at min-height:auto -- i.e. min-content -- so it
+   cannot shrink, and 917px of children in a 578px section pushed the table out
+   of view and made <main> scroll. Let it compress and scroll INSIDE itself, and
+   give the table a floor tall enough to be worth reading. */
+@media not all and (min-width: 1180px) and (min-height: 620px) {
+  #s-domains > .glass:not(.stretch) {
+    /* A floor so the table's flex-grow cannot crush the form (it reached 138px),
+       and a cap so an expanded builder cannot take the whole column. Both are
+       min()/percentage pairs so that on a short viewport the two floors together
+       can never over-commit the section and force <main> to scroll. */
+    /* flex-shrink:0 is the load-bearing part: .stretch has flex-grow, so with a
+       shrinkable form the table's growth crushed the form to its floor (138px,
+       then 240px) even with the builder CLOSED and only ~330px of content. The
+       form now keeps its natural height; the max-height only bites when the
+       builder is expanded, and then the form scrolls inside itself rather than
+       pushing the table out of view. */
+    flex: 0 0 auto;
+    max-height: 62%;
+    overflow-y: auto; overscroll-behavior: contain;
+  }
+  #s-domains > .glass.stretch { min-height: min(260px, 40%); }
+}
+/* Three filter controls wrapped onto three lines at 430px, spending 113px of the
+   table card on its own header. Two per line, search full width. */
+@media (max-width: 620px) {
+  #s-domains .glass-head .row-actions { width: 100%; gap: var(--sp-2); }
+  #s-domains .glass-head .row-actions select { flex: 1 1 calc(50% - 4px); min-width: 0; }
+  #s-domains .glass-head .row-actions input[type="search"] { flex: 1 1 100%; min-width: 0; }
+  /* On a phone the h2 plus two rows of filter controls cost 111px of the table
+     card, and a capped form nested a second scroll container inside a page that
+     already scrolls. Below this width the page scrolls normally instead: the
+     form is fully visible and the table gets a fixed, useful height. */
+  #s-domains > .glass:not(.stretch) { max-height: none; overflow: visible; }
+  #s-domains > .glass.stretch { min-height: 340px; }
+}
+
+/* --- table rhythm. Truncate rather than wrap, so rows keep one height. --- */
+/* In the two-column band the table card is only ~520-620px wide even on a
+   1440px screen, so column visibility has to follow the CARD's width, not the
+   viewport's — a viewport media query cannot see that the card is phone-width.
+   Fixed widths summing to 532px previously left Domain and Comment sharing
+   whatever was left, which at <=1300px was 0px: the domain name vanished.
+   min-width gives the columns a floor and lets .table-wrap scroll instead. */
+#s-domains > .glass.stretch { container-type: inline-size; }
+#domainsTable { table-layout: fixed; min-width: 780px; }
+#domainsTable th:nth-child(2), #domainsTable th:nth-child(3) { width: 96px; }
+#domainsTable th:nth-child(4) { width: 124px; }
+#domainsTable th:nth-child(6) { width: 78px; }
+#domainsTable th:nth-child(7) { width: 104px; }
+/* Comment is the first to go, Groups second; Domain always survives. */
+@container (max-width: 800px) {
+  #domainsTable { min-width: 660px; }
+  #domainsTable th:nth-child(5), #domainsTable td:nth-child(5) { display: none; }
+}
+@container (max-width: 680px) {
+  #domainsTable { min-width: 520px; }
+  #domainsTable th:nth-child(4), #domainsTable td:nth-child(4) { display: none; }
+}
+#domainsTable td:first-child { font-size: 13px; color: var(--text); }
+.dt td.trunc { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dt td.cmt { color: var(--muted); }   /* --dim on --panel measures 3.26:1: fails AA at 12.5px */
+.dt td.acts { display: flex; gap: var(--sp-1); align-items: center; }
+
+/* Row destructive action: an icon at rest, a danger control on hover/focus.
+   Always visible and always focusable -- never hover-only. */
+.btn-icon-sm { width: var(--btn-h, var(--ctl-h-sm)); height: var(--btn-h, var(--ctl-h-sm)); padding: 0; line-height: 0; background: transparent; border-color: transparent; color: var(--muted); }
+.btn-icon-sm:hover, .btn-icon-sm:focus-visible { border-color: var(--red); color: var(--red); box-shadow: none; transform: none; }
+/* .dt td .dev-ico forces cyan + a right margin + 0.85 opacity; all three must go. */
+.btn-icon-sm .dev-ico { color: inherit; margin: 0; opacity: 1; vertical-align: baseline; width: 15px; height: 15px; display: block; }
+
+.empty-state { display: flex; flex-direction: column; align-items: center; gap: var(--sp-2); padding: 44px 20px; text-align: center; }
+.empty-state .es-ico { width: 44px; height: 44px; border-radius: var(--r-md); display: grid; place-items: center; background: var(--chip); border: 1px solid var(--stroke); color: var(--muted); }
+.empty-state .es-ico .dev-ico { color: inherit; margin: 0; opacity: 1; width: 20px; height: 20px; }
+.empty-state b { font-size: 13.5px; font-weight: 650; }
+.empty-state span { font-size: 11.5px; color: var(--muted); max-width: 340px; line-height: 1.6; }
+
+@media (max-width: 1024px) {
+  /* Anchor the row's identity while the table scrolls sideways. */
+  #domainsTable th:first-child, #domainsTable td:first-child {
+    position: sticky; left: 0; z-index: 1;
+    /* --panel-solid made the frozen column a visibly LIGHTER stripe (1.13:1)
+       down the middle of every dark row. --surface-card-opaque is var(--panel)
+       and exists for exactly this. */
+    background: var(--surface-card-opaque);
+    box-shadow: inset -1px 0 0 var(--stroke);
+  }
+  #domainsTable th:first-child {
+    z-index: 3; background: var(--surface-head);
+    /* BOTH insets in ONE declaration — box-shadow does not accumulate across
+       rules, so the header's bottom edge would otherwise be lost here. */
+    box-shadow: inset -1px 0 0 var(--stroke), inset 0 -1px 0 var(--stroke-strong);
+  }
+  /* D5: `#domainsTable td:first-child` is (1,1,1) and beat `.dt tbody tr:hover td`
+     (0,2,3), so the hovered row's domain cell never highlighted. (1,2,3) wins,
+     and the fill must be OPAQUE or rows scrolling beneath show through. */
+  #domainsTable tbody tr:hover td:first-child { background: var(--panel-2); }
+}
+
+
+/* ===================== Automation ===================== */
+.auto-hud { display: flex; flex-wrap: wrap; gap: var(--sp-3); align-items: center; justify-content: space-between; }
+.auto-state { display: flex; align-items: center; gap: var(--sp-2); }
+.auto-lamp { width: var(--dot); height: var(--dot); border-radius: 50%; background: var(--muted); flex: none; }
+.auto-lamp.on { background: var(--green); animation: autoPulse 2.6s ease-in-out infinite; }
+.auto-lamp.off { background: var(--muted); }
+.auto-lamp.bad { background: var(--red); }
+@keyframes autoPulse { 0%,100% { opacity: 1; } 50% { opacity: 0.45; } }
+.auto-state b { font-size: 13.5px; display: block; line-height: 1.25; }
+.auto-state span { font-size: 11px; color: var(--muted); font-family: var(--mono); }
+
+.tpl-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: var(--sp-3); }
+.tpl {
+  text-align: left; display: flex; flex-direction: column; gap: var(--sp-1); padding: var(--sp-3) var(--sp-4);
+  background: var(--chip); border: 1px solid var(--stroke); border-radius: var(--r-md);
+  cursor: pointer; font-family: inherit; color: var(--text);
+  transition: border-color var(--dur-1) var(--ease-out), background-color var(--dur-1) var(--ease-out);
+}
+.tpl:hover, .tpl:focus-visible { border-color: var(--cyan); transform: translateY(-2px); box-shadow: 0 6px 20px rgba(34,211,238,0.12); }
+.tpl b { font-size: 12.5px; font-weight: 650; display: flex; align-items: center; gap: var(--sp-2); }
+.tpl b .dev-ico { color: var(--cyan); margin: 0; opacity: 1; }
+.tpl span { font-size: 11px; color: var(--muted); line-height: 1.5; }
+
+.auto-list { display: grid; gap: var(--sp-3); }
+.auto-card {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--sp-3) var(--sp-4); align-items: start;
+  padding: 15px 17px; background: var(--panel); border: 1px solid var(--stroke);
+  border-left: 3px solid var(--stroke-strong); border-radius: var(--r-md); transition: border-color 0.16s;
+}
+.auto-card.armed { border-left-color: var(--green); }
+.auto-card.failed { border-left-color: var(--red); }
+.auto-card.alert-only { border-left-color: var(--blue); }
+.auto-card .ac-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); margin-bottom: 5px; }
+.auto-card .ac-head b { font-size: 13.5px; }
+.auto-card .ac-sentence { font-size: 12px; color: var(--muted); line-height: 1.55; }
+.auto-card .ac-meta { display: flex; flex-wrap: wrap; gap: var(--sp-1) var(--sp-3); margin-top: 8px; font-size: 10.5px; font-family: var(--mono); color: var(--muted); }
+.auto-card .ac-meta b { color: var(--muted); font-weight: 600; }
+.auto-card .ac-actions { display: flex; align-items: center; gap: var(--sp-1); flex-wrap: wrap; justify-content: flex-end; }
+@media (max-width: 720px) {
+  .auto-card { grid-template-columns: minmax(0, 1fr); }
+  .auto-card .ac-actions { justify-content: flex-start; }
+}
+
+.tl { display: grid; }
+.tl-item { display: grid; grid-template-columns: 14px minmax(0, 1fr); gap: var(--sp-3); padding: var(--sp-2) 0; border-bottom: 1px solid var(--hover); }
+.tl-item:last-child { border-bottom: 0; }
+.tl-dot { width: var(--dot); height: var(--dot); border-radius: 50%; margin-top: 5px; background: var(--muted); }
+.tl-dot.warn { background: var(--amber); } .tl-dot.err { background: var(--red); } .tl-dot.info { background: var(--blue); }
+.tl-body b { font-size: 12.5px; display: block; }
+.tl-body span { font-size: 10.5px; color: var(--muted); font-family: var(--mono); }
+.tl-body .tl-detail { font-size: 11px; color: var(--muted); font-family: var(--mono); display: block; margin-top: 3px; word-break: break-word; }
+
+/* ===================== Profile ===================== */
+.prof-grid { display: grid; grid-template-columns: minmax(0, 300px) minmax(0, 1fr); gap: var(--sp-5); }
+@media (max-width: 900px) { .prof-grid { grid-template-columns: minmax(0, 1fr); } }
+/* Grid tracks size to the item's MARGIN box, so a .glass inside a band ended
+   20px above its track and the band contributed 18+20=38px to the next block,
+   while two bare stacked cards were 20px apart. One selector list, no new rule. */
+.grid-2 > .glass, .grid-3 > .glass, .infra-grid > .glass,
+.ap-strip > .glass, .prof-grid > .glass { margin-bottom: 0; }
+
+.prof-photo { display: flex; align-items: center; gap: var(--sp-4); flex-wrap: wrap; }
+.prof-avatar {
+  width: 96px; height: 96px; flex: none;
+  border-radius: var(--r-pill);
+  display: grid; place-items: center; overflow: hidden;
+  background: var(--tint-blue); color: var(--blue-text);
+  border: 1px solid var(--panel-line);
+  font-size: 34px; font-weight: 700; letter-spacing: -0.02em;
+  user-select: none;
+}
+.prof-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.prof-photo-actions { display: flex; flex-direction: column; gap: var(--sp-2); align-items: flex-start; min-width: 0; }
+/* The file input is visually hidden but NOT display:none, so it stays focusable
+   and its <label> keeps acting as the accessible control. */
+.prof-photo-actions .hint { margin: 0; }
+.prof-form { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (max-width: 620px) { .prof-form { grid-template-columns: minmax(0, 1fr); } }
+
+/* The header identity chip can now carry a photo. */
+.hud-avatar { overflow: hidden; }
+.hud-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; border-radius: inherit; }
+
+/* ===================== Command palette ===================== */
+.cp-back {
+  position: fixed; inset: 0; z-index: 900; background: var(--overlay);
+  backdrop-filter: blur(4px); display: flex; align-items: flex-start; justify-content: center;
+  padding: 10vh 16px 16px;
+}
+.cp {
+  width: 100%; max-width: 620px; background: var(--panel-solid);
+  border: 1px solid var(--stroke-strong); border-radius: var(--r-xl); overflow: hidden;
+  box-shadow: 0 24px 70px rgba(0,0,0,0.45); display: flex; flex-direction: column; max-height: 70vh;
+}
+.cp-input {
+  width: 100%; border: 0; border-bottom: 1px solid var(--stroke); border-radius: 0;
+  background: transparent; padding: 16px 18px; font-size: 15px; color: var(--text);
+}
+.cp-input:focus { border-color: var(--stroke); box-shadow: none; }
+.cp-list { list-style: none; margin: 0; padding: 6px; overflow-y: auto; min-height: 0; }
+.cp-item {
+  display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-2) var(--sp-3); border-radius: var(--r-md);
+  cursor: pointer; font-size: 13px;
+}
+.cp-item .dev-ico { color: var(--muted); margin: 0; opacity: 1; flex: none; }
+.cp-item[aria-selected="true"] { background: var(--nav-active-bg); }
+.cp-item[aria-selected="true"] .dev-ico { color: var(--cyan); }
+.cp-item .cp-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cp-item .cp-tag { flex: none; }
+.cp-empty { padding: 22px; text-align: center; color: var(--muted); font-size: 12.5px; }
+.cp-foot {
+  display: flex; gap: var(--sp-3); padding: var(--sp-2) var(--sp-4); border-top: 1px solid var(--stroke);
+  font-size: 10.5px; color: var(--muted); font-family: var(--mono); flex-wrap: wrap;
+}
+kbd {
+  font-family: var(--mono); font-size: 10px; padding: 1px 5px; border-radius: var(--r-sm);
+  background: var(--chip); border: 1px solid var(--stroke); color: var(--muted);
+}
+
+/* Shortcut help overlay */
+.sc-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: var(--sp-2) var(--sp-5); }
+.sc-row { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); padding: 6px 0; border-bottom: 1px solid var(--hover); font-size: 12.5px; }
+.sc-row span { color: var(--muted); }
+
+/* ===================== Infrastructure cards ===================== */
+.infra-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); gap: var(--sp-5); margin-bottom: var(--sp-5); }
+.infra-card {
+  background: var(--panel); border: 1px solid var(--stroke); border-radius: var(--radius);
+  padding: 18px 20px; box-shadow: var(--shadow-lg);
+  border-top: 3px solid var(--cyan); display: flex; flex-direction: column; gap: var(--sp-3);
+}
+.infra-card.is-ap { border-top-color: var(--amber); }
+.infra-card.is-down { border-top-color: var(--red); opacity: 0.8; }
+.infra-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--sp-2); }
+.infra-title { display: flex; align-items: center; gap: var(--sp-2); }
+.infra-title svg { width: 26px; height: 26px; color: var(--cyan); flex-shrink: 0; }
+.infra-card.is-ap .infra-title svg { color: var(--amber); }
+.infra-title b { font-size: 14.5px; display: block; }
+.infra-title span { font-size: 11px; color: var(--muted); font-family: var(--mono); }
+.infra-gauges { display: flex; gap: var(--sp-1); justify-content: space-around; }
+.infra-radios { display: flex; flex-direction: column; gap: var(--sp-2); }
+.radio-row {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2);
+  padding: 8px 11px; background: var(--chip); border: 1px solid var(--stroke); border-radius: var(--r-md);
+}
+.radio-row .rr-name { font-size: 12.5px; font-weight: 600; }
+.radio-row .rr-sub { font-size: 10.5px; color: var(--muted); }
+.infra-actions { display: flex; gap: var(--sp-2); flex-wrap: wrap; margin-top: auto; padding-top: var(--sp-1); }
+.infra-note { font-size: 11px; color: var(--muted); }
+
+/* ===================== Wi-Fi health ===================== */
+.sig-bars { display: flex; flex-direction: column; gap: var(--sp-2); margin-bottom: var(--sp-3); }
+.sig-row { display: grid; grid-template-columns: 80px 1fr 42px; align-items: center; gap: var(--sp-2); font-size: 11.5px; }
+.sig-row .sg-name { color: var(--muted); }
+.sig-row .sg-track { height: 7px; background: var(--track); border-radius: var(--r-xs); overflow: hidden; }
+.sig-row .sg-fill { height: 100%; border-radius: var(--r-xs); transition: width 0.5s; }
+.sig-row .sg-val { text-align: right; font-family: var(--mono); color: var(--muted); }
+.sg-excellent { background: linear-gradient(90deg, var(--green), #7df5cd); }
+.sg-good      { background: linear-gradient(90deg, var(--cyan), #7de6f5); }
+.sg-fair      { background: linear-gradient(90deg, var(--amber), #ffd08a); }
+.sg-weak      { background: linear-gradient(90deg, var(--red), #ff9db1); }
+.sg-unknown   { background: var(--mesh-link); }
+
+/* ===================== Roaming ===================== */
+.roam-time { position: relative; padding-left: 18px; margin-bottom: 4px; }
+.roam-time::before { content: ''; position: absolute; left: 5px; top: 4px; bottom: 4px; width: 2px; background: var(--mesh-link); border-radius: var(--r-xs); }
+.roam-ev { position: relative; padding: 7px 0 7px 4px; font-size: 12px; }
+.roam-ev::before { content: ''; position: absolute; left: -16px; top: 12px; width: 8px; height: 8px; border-radius: 50%; background: var(--violet); }
+.roam-ev.steer::before { background: var(--cyan); }
+.roam-ev b { color: var(--text); }
+.roam-ev .rt { color: var(--muted); font-family: var(--mono); font-size: 10.5px; }
+.roam-arrow { color: var(--violet); margin: 0 5px; }
+#meshSvg .mnode:hover circle.body { stroke-width: 3; }
+#meshSvg .pulse-ring { fill: none; stroke: var(--cyan); stroke-width: 1.4; opacity: 0; transform-origin: center; transform-box: fill-box; animation: meshpulse 2.6s ease-out infinite; }
+@keyframes meshpulse { 0% { opacity: 0.7; transform: scale(1); } 100% { opacity: 0; transform: scale(2.1); } }
+/* device icons in tables */
+.dev-ico { margin-right: 5px; opacity: 0.85; color: var(--muted); flex-shrink: 0; }
+/* Child combinator: the cyan must NOT reach an svg nested inside a button, or
+   the trash icon can never turn red on hover with its border. */
+.dt td > .dev-ico { color: var(--cyan); }
+/* Pill, icon and text landed on three different centres in one line. */
+.dt td .dev-ico, .dt td .pill, .dt td .btn { vertical-align: middle; }
+
+/* icon legend under the map */
+.mesh-legend { display: flex; flex-wrap: wrap; gap: var(--sp-2) var(--sp-4); margin-top: var(--sp-2); padding-top: var(--sp-3); border-top: 1px solid var(--stroke); }
+.mesh-legend:empty { display: none; }
+.lg-ico { display: inline-flex; align-items: center; gap: var(--sp-1); font-size: 11px; color: var(--muted); }
+.lg-ico .dev-ico { margin: 0; color: var(--cyan); }
+
+/* hover focus: dim everything not on the hovered AP's path */
+#meshSvg.focused .mnode:not(.lit) { opacity: 0.22; }
+#meshSvg.focused .mlink:not(.lit) { opacity: 0.12; }
+#meshSvg .mnode, #meshSvg .mlink { transition: opacity 0.18s; }
+
+#meshSvg .mlabel { fill: var(--text); font-size: 11px; font-family: 'Inter', sans-serif; text-anchor: middle; pointer-events: none; }
+#meshSvg .msub { fill: var(--muted); font-size: 9px; font-family: 'JetBrains Mono', monospace; text-anchor: middle; pointer-events: none; }
+#meshSvg .mico { font-size: 14px; text-anchor: middle; dominant-baseline: central; pointer-events: none; }
+#meshSvg .mico-big { font-size: 20px; }
+.mesh-tip {
+  position: absolute; display: none; pointer-events: none; z-index: 30;
+  background: var(--panel-solid); border: 1px solid var(--stroke-strong);
+  border-radius: var(--r-md); padding: 10px 13px; font-size: 12px; line-height: 1.55;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.55); max-width: 260px;
+}
+.mesh-tip b { color: var(--cyan); }
+.mesh-tip .mono { font-family: var(--mono); color: var(--muted); }
+
+/* ===================== Accessibility & polish ===================== */
+/* The border-radius here rewrote the ELEMENT's corners, not the outline's, so
+   at --r-sm every 10px control visibly snapped on Tab. The outline already
+   follows the element's own radius. */
+:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+.btn:focus-visible, .nav-item:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+  /* the base rule only covers animation/transition; smooth scrolling is neither */
+  main, .table-wrap, .pattern-builder, .builder { scroll-behavior: auto; }
+}
+
+/* ===================== Mobile / narrow layout ===================== */
+@media (max-width: 940px) {
+  .app { grid-template-columns: 62px 1fr; }
+  .logo { justify-content: center; padding: var(--sp-1) 0 var(--sp-4); }
+  .logo-text { display: none; }
+  .nav-item { justify-content: center; padding: 11px 0; }
+  .nav-item span { display: none; }
+  .nav-item.active::before { top: 25%; bottom: 25%; }
+  .sidebar { padding: 16px 8px; }
+  .sidebar-foot .ver { display: none; }
+  .conn span:last-child { display: none; }
+  .conn { justify-content: center; }
+  .clock { display: none; }
+  main { padding: var(--sp-4) var(--sp-3); }
+  .stat-row, .stat-row-8 { grid-template-columns: repeat(2, 1fr); gap: var(--sp-3); }
+}
