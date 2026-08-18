@@ -248,6 +248,41 @@ const daysText = (days) =>
       : days.length === 2 && days.includes(0) && days.includes(6) ? 'weekends'
         : days.map((d) => DOW_LABEL[d]).join(', ');
 
+// ---------------------------------------------------------------------------
+//  Router sidecar helpers.
+//
+//  D.routerJson resolves to the transport ENVELOPE `{ status, data }`, not to
+//  the payload. Reading `st.cpu_usage` straight off it gives undefined -> NaN,
+//  which fails Number.isFinite, so no CPU or memory alert could ever fire and
+//  infra.watch degraded silently into a WAN-only check. Unwrap in exactly one
+//  place so the mistake cannot be repeated.
+// ---------------------------------------------------------------------------
+async function routerStatus() {
+  const r = await D.routerJson('/status').catch(() => null);
+  const d = r && r.data;
+  return d && !d.error ? d : null;
+}
+
+// Every device the sidecar accepts a control command for: the gateway plus each
+// configured access point. `reachable` reflects the last poll, which is the
+// difference between "reboot it" and "it is already down".
+async function rebootTargets() {
+  const out = [];
+  const st = await routerStatus();
+  if (st) out.push({ id: 'gateway', label: st.model || 'Gateway', reachable: !st.stale });
+  const aps = await D.routerJson('/aps').catch(() => null);
+  for (const a of (aps && aps.data && aps.data.aps) || []) {
+    if (a && a.id) {
+      out.push({
+        id: String(a.id),
+        label: a.label || a.model || String(a.id),
+        reachable: a.ok !== false && !a.stale,
+      });
+    }
+  }
+  return out;
+}
+
 // ===========================================================================
 //  KIND REGISTRY — the security model. Null-prototype so a stored kind of
 //  "constructor" or "toString" cannot resolve to a truthy entry.
@@ -482,15 +517,15 @@ const KINDS = Object.freeze(Object.assign(Object.create(null), {
       return { config: { cpuPct, memPct, dwellMinutes, watchWan } };
     },
     sentence: (c) => `Alert when ${[c.watchWan ? 'the internet is unreachable' : null, `gateway CPU is above ${c.cpuPct}%`, `memory is above ${c.memPct}%`].filter(Boolean).join(', or ')}, sustained for ${c.dwellMinutes} minutes.`,
-    lint: async () => ([['info', 'Alert only. Gateway reboots and Wi-Fi radio changes are deliberately not automatable — they stay manual, confirmed actions in the Routers & APs section.']]),
+    lint: async () => ([['info', 'Alert only — this automation never touches the hardware. To power-cycle a device on a schedule, use Scheduled Router Reboot. Wi-Fi radio changes stay manual, confirmed actions in Routers & APs.']]),
     async preview() {
-      const st = await D.routerJson('/status').catch(() => null);
+      const st = await routerStatus();
       return st ? { cpu: st.cpu_usage ?? null, mem: st.mem_usage ?? null, wanUp: st.wan_ipv4_up ?? null, stale: !!st.stale } : { unreachable: true };
     },
     async poll(row) {
       const c = row.config;
       const [st, net] = await Promise.all([
-        D.routerJson('/status').catch(() => null),
+        routerStatus(),
         c.watchWan ? internetUp() : Promise.resolve(true),
       ]);
       const bad = [];
@@ -509,6 +544,80 @@ const KINDS = Object.freeze(Object.assign(Object.create(null), {
       const fired = raise(row, 'err', `Infrastructure degraded: ${bad.join('; ')}`,
         { minutes: mins, conditions: bad }, `infra:${row.id}`, 60);
       return { state: `degraded for ${mins} minutes`, alerted: fired };
+    },
+  },
+
+  // ------------------------------------------------------- 8. router reboot
+  'infra.reboot': {
+    label: 'Scheduled Router Reboot', role: 'admin', model: 'edge', schedulable: true,
+    exclusive: 'router-control',
+    blurb: 'Power-cycles the gateway or one access point on a schedule. Every client on that device loses its connection while it restarts, and rebooting the gateway takes this app off the network with it.',
+    validate(raw) {
+      const deviceId = vName(raw.deviceId);
+      const days = vDays(raw.days);
+      const at = HHMM.test(raw.at) ? raw.at : null;
+      // 6 h is a FLOOR, not a default. It is the only thing standing between a
+      // mis-set schedule and a device that power-cycles in a loop, so it is
+      // clamped here on the server rather than trusted to the form.
+      const minHours = Math.min(Math.max(Number(raw.minHours ?? 24) || 0, 6), 168);
+      if (!deviceId) return { error: 'Choose which device to reboot.' };
+      if (!days) return { error: 'Select at least one day.' };
+      if (!at) return { error: 'Set a time of day, such as 04:30.' };
+      return { config: { deviceId, days, at, minHours } };
+    },
+    sentence: (c) => `${daysText(c.days)} at ${c.at}, reboot ${c.deviceId === 'gateway' ? 'the gateway' : `access point "${c.deviceId}"`}, never twice within ${c.minHours} hours.`,
+    async lint(c) {
+      const notes = [];
+      notes.push(c.deviceId === 'gateway'
+        ? ['warn', 'Rebooting the gateway drops every device on the network — including this app and any remote access to it. Nothing is reachable until the gateway has finished starting, usually one to three minutes.']
+        : ['info', 'Clients on this access point lose Wi-Fi while it restarts. Devices in range of another AP will roam to it.']);
+      const m = toMin(c.at);
+      if (m >= 360 && m <= 1380) notes.push(['warn', 'This runs during the day. A reboot is far less disruptive overnight.']);
+      if (c.minHours < 24) notes.push(['info', `A further reboot may follow ${c.minHours} hours after the last one. Most setups want 24 or more.`]);
+      const known = await rebootTargets().catch(() => null);
+      if (known === null) {
+        notes.push(['warn', 'The router sidecar is not answering, so the target could not be confirmed. If it is still unreachable when this runs, the automation skips rather than guesses.']);
+      } else if (!known.some((d) => d.id === c.deviceId)) {
+        notes.push(['err', `No device with id "${c.deviceId}" is configured. Choose one of: ${known.map((d) => d.id).join(', ') || 'none available'}.`]);
+      }
+      return notes;
+    },
+    async preview(c) {
+      const last = Number(dbGetSetting(`automation.rebootLast.${c?.deviceId || ''}`, '0')) || 0;
+      const targets = await rebootTargets().catch(() => []);
+      return {
+        lastReboot: last || null,
+        targets: targets.map((t) => `${t.id}${t.reachable ? '' : ' (unreachable)'}`),
+      };
+    },
+    async run(row) {
+      const c = row.config;
+      const key = `automation.rebootLast.${c.deviceId}`;
+      const last = Number(dbGetSetting(key, '0')) || 0;
+      if (last && Date.now() - last < c.minHours * 3600000) {
+        const h = Math.floor((Date.now() - last) / 3600000);
+        return { skip: `${c.deviceId} was rebooted ${h}h ago; the minimum interval is ${c.minHours}h` };
+      }
+      const target = (await rebootTargets()).find((t) => t.id === c.deviceId);
+      if (!target) return { skip: `No device with id "${c.deviceId}" is configured` };
+      if (!target.reachable) return { skip: `${c.deviceId} is already unreachable; not issuing a reboot` };
+
+      // Stamp the guard BEFORE issuing. A gateway reboot tears down this
+      // process's own network path, so the call can throw even though the
+      // command landed — the outcome is genuinely ambiguous. Recording first
+      // means the ambiguous case still arms the interval guard: the worst
+      // outcome becomes one missed reboot rather than a device that
+      // power-cycles on every tick.
+      dbSetSetting(key, String(Date.now()));
+      try {
+        await D.routerControl(c.deviceId, 'reboot');
+        return { detail: { device: c.deviceId, label: target.label, issued: true } };
+      } catch (e) {
+        return {
+          detail: { device: c.deviceId, label: target.label, issued: 'unconfirmed', reason: e.message },
+          note: 'The command was sent but no reply came back, which is exactly what a successful gateway reboot looks like from in here.',
+        };
+      }
     },
   },
 }));
@@ -667,7 +776,7 @@ async function tick() {
 // ---------------------------------------------------------------------------
 export function initAutomation(deps) {
   const required = ['instances', 'primaryInstance', 'instanceById', 'callInstance',
-    'instanceJson', 'piholeJson', 'routerJson', 'probeSamples', 'teleporterBuffer'];
+    'instanceJson', 'piholeJson', 'routerJson', 'routerControl', 'probeSamples', 'teleporterBuffer'];
   for (const k of required) {
     if (typeof deps?.[k] !== 'function') {
       // Fail loudly at boot, not silently at 03:15, if a future refactor

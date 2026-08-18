@@ -2149,9 +2149,14 @@ let abDraft = null;          // { kind, id?, name, config }
 const KIND_ICON = {
   'access.window': 'clock', 'gravity.refresh': 'refresh', 'backup.teleporter': 'save',
   'blocking.watchdog': 'shield', 'integrity.monitor': 'radar', 'device.new': 'device',
-  'infra.watch': 'bolt',
+  'infra.watch': 'bolt', 'infra.reboot': 'power',
 };
 const DOWS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+// Reboot targets, in the same shape the sidecar accepts as a control-plane id.
+// Populated by loadAutomation; if the sidecar is unreachable this stays empty
+// and the picker degrades to a free-text id rather than silently offering none.
+let autoDevices = [];
 
 // Field schema per kind. Mirrors the server-side validators; the server remains
 // the authority — this only shapes the form.
@@ -2180,6 +2185,13 @@ const KIND_FIELDS = {
     { k: 'floorPercent', t: 'num', label: 'Alert below (% blocked)', def: 2, min: 0, max: 90 },
   ],
   'device.new': [],
+  'infra.reboot': [
+    { k: 'deviceId', t: 'device', label: 'Device to reboot' },
+    { k: 'days', t: 'days', label: 'Days', def: [0] },
+    { k: 'at', t: 'time', label: 'At', def: '04:30' },
+    // min 6 mirrors the server's hard floor; the server re-clamps regardless.
+    { k: 'minHours', t: 'num', label: 'Never reboot twice within (hours)', def: 24, min: 6, max: 168 },
+  ],
   'infra.watch': [
     { k: 'watchWan', t: 'bool', label: 'Watch the internet connection', def: true },
     { k: 'cpuPct', t: 'num', label: 'Gateway CPU above (%)', def: 90, min: 40, max: 100 },
@@ -2200,6 +2212,18 @@ const autoApi = async (path, opts) => {
 };
 
 async function loadAutomation() {
+  // Reboot targets, for the Scheduled Router Reboot picker. Best-effort: a
+  // sidecar that is down must not stop the rest of the section rendering.
+  Promise.allSettled([getJson('/manager/router/status'), getJson('/manager/router/aps')])
+    .then(([st, aps]) => {
+      const list = [];
+      const g = st.status === 'fulfilled' ? st.value : null;
+      if (g && !g.error) list.push({ id: 'gateway', label: g.model ? `Gateway — ${g.model}` : 'Gateway' });
+      for (const a of (aps.status === 'fulfilled' && aps.value?.aps) || []) {
+        if (a?.id) list.push({ id: String(a.id), label: a.label || a.model || String(a.id) });
+      }
+      autoDevices = list;
+    });
   try {
     autoData = await autoApi('/');
     renderAutoHud();
@@ -2351,6 +2375,17 @@ function abRenderFields() {
         <option value="">Select a group…</option>
         ${groups.map((g) => `<option value="${esc(g.name)}" ${g.name === v ? 'selected' : ''}>${esc(g.name)}${g.id === 0 ? ' (applies to everyone)' : ''}</option>`).join('')}
       </select></label>`);
+    } else if (fl.t === 'device') {
+      // Free text when the sidecar has not answered, so an existing rule can
+      // still be edited while the router is down.
+      html.push(autoDevices.length
+        ? `<label class="pb-field"><span>${esc(fl.label)}</span><select data-ab="${fl.k}">
+        <option value="">Select a device…</option>
+        ${autoDevices.map((d) => `<option value="${esc(d.id)}" ${d.id === v ? 'selected' : ''}>${esc(d.label)}${d.id === 'gateway' ? ' — gateway, drops the whole network' : ''}</option>`).join('')}
+      </select></label>`
+        : `<label class="pb-field"><span>${esc(fl.label)}</span>
+        <input type="text" data-ab="${fl.k}" value="${esc(v || '')}" placeholder="gateway" spellcheck="false" />
+        <span class="hint">The router sidecar is not answering, so the device list is unavailable. Enter the id directly.</span></label>`);
     } else if (fl.t === 'days') {
       html.push(`<div class="pb-field"><span>${esc(fl.label)}</span><div class="check-grid">
         ${DOWS.map((d, i) => `<label class="${(v || []).includes(i) ? 'on' : ''}"><input type="checkbox" data-ab-day="${i}" ${(v || []).includes(i) ? 'checked' : ''}>${d}</label>`).join('')}

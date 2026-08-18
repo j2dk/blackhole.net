@@ -1062,9 +1062,26 @@ app.get('/manager/health', async (_req, res) => {
 // invalidates the engine's view for free. initAutomation throws at boot if any
 // of them is missing, so a future rename fails loudly at startup instead of
 // silently at 03:15.
+// Issues a control-plane command to the sidecar. Separate from routerJson
+// because it POSTs, and because a reboot legitimately may never answer: the
+// device can drop the link before the reply is written. The engine treats a
+// throw as "unconfirmed", never as "did not happen".
+async function routerControl(id, action) {
+  if (!ROUTER_SERVICE_URL) throw new Error('router sidecar not configured');
+  const r = await fetch(`${ROUTER_SERVICE_URL}/control/${encodeURIComponent(id)}/${action}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: '{}',
+    signal: AbortSignal.timeout(45000),
+  });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok || d.ok === false) throw new Error(d.message || d.error || `sidecar returned ${r.status}`);
+  return d;
+}
+
 const autoDeps = {
   instances, primaryInstance, instanceById, callInstance, instanceJson,
-  piholeJson, routerJson, probeSamples, teleporterBuffer, cfg: () => CFG,
+  piholeJson, routerJson, routerControl, probeSamples, teleporterBuffer, cfg: () => CFG,
 };
 app.use('/manager/automation', automationRouter(autoDeps));
 
